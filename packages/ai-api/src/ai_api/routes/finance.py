@@ -99,9 +99,13 @@ class CardResponse(BaseModel):
 
 
 class TransactionCreate(BaseModel):
-    """Schema for creating a transaction."""
+    """Schema for creating a transaction.
 
-    card_id: str
+    Either card_id or bank_account_id must be provided.
+    """
+
+    card_id: str | None = None
+    bank_account_id: str | None = None
     amount: Decimal
     currency: str = Field(..., min_length=3, max_length=3)
     merchant: str | None = Field(None, max_length=200)
@@ -128,7 +132,8 @@ class TransactionResponse(BaseModel):
     """Schema for transaction response."""
 
     id: str
-    card_id: str
+    card_id: str | None
+    bank_account_id: str | None
     amount: Decimal
     currency: str
     merchant: str | None
@@ -138,6 +143,7 @@ class TransactionResponse(BaseModel):
     transaction_date: datetime
     created_at: datetime
     card_last_four: str | None = None
+    bank_name: str | None = None
 
     class Config:
         from_attributes = True
@@ -598,6 +604,7 @@ async def delete_card(
 @router.get("/transactions", response_model=list[TransactionResponse])
 async def list_transactions(
     card_id: str | None = Query(None, description="Filter by card ID"),
+    account_id: str | None = Query(None, description="Filter by bank account ID"),
     category: str | None = Query(None, description="Filter by category"),
     transaction_type: str | None = Query(None, description="Filter by type"),
     start_date: datetime | None = Query(None, description="Filter from date"),
@@ -607,13 +614,36 @@ async def list_transactions(
     db: Session = Depends(get_db),
     user_id: str = Depends(get_default_user_id),
 ):
-    """List transactions with optional filters."""
+    """List transactions with optional filters.
+
+    Includes both card transactions and direct bank account transactions.
+    """
+    from sqlalchemy import or_
+
+    # Query transactions via either path
     query = (
-        db.query(Transaction).join(Card).join(BankAccount).filter(BankAccount.user_id == user_id)
+        db.query(Transaction)
+        .outerjoin(Card, Transaction.card_id == Card.id)
+        .outerjoin(
+            BankAccount,
+            or_(
+                Card.bank_account_id == BankAccount.id,
+                Transaction.bank_account_id == BankAccount.id,
+            ),
+        )
+        .filter(BankAccount.user_id == user_id)
     )
 
     if card_id:
         query = query.filter(Transaction.card_id == card_id)
+    if account_id:
+        # Filter by account - includes both direct and card transactions for that account
+        query = query.filter(
+            or_(
+                Transaction.bank_account_id == account_id,
+                Card.bank_account_id == account_id,
+            )
+        )
     if category:
         query = query.filter(Transaction.category == category)
     if transaction_type:
@@ -627,22 +657,34 @@ async def list_transactions(
         query.order_by(Transaction.transaction_date.desc()).limit(limit).offset(offset).all()
     )
 
-    return [
-        TransactionResponse(
-            id=str(t.id),
-            card_id=str(t.card_id),
-            amount=t.amount,
-            currency=t.currency,
-            merchant=t.merchant,
-            description=t.description,
-            category=t.category,
-            transaction_type=t.transaction_type,
-            transaction_date=t.transaction_date,
-            created_at=t.created_at,
-            card_last_four=t.card.last_four,
+    result = []
+    for t in transactions:
+        # Determine bank name from either card's account or direct account
+        bank_name = None
+        if t.card and t.card.bank_account:
+            bank_name = t.card.bank_account.bank_name
+        elif t.bank_account:
+            bank_name = t.bank_account.bank_name
+
+        result.append(
+            TransactionResponse(
+                id=str(t.id),
+                card_id=str(t.card_id) if t.card_id else None,
+                bank_account_id=str(t.bank_account_id) if t.bank_account_id else None,
+                amount=t.amount,
+                currency=t.currency,
+                merchant=t.merchant,
+                description=t.description,
+                category=t.category,
+                transaction_type=t.transaction_type,
+                transaction_date=t.transaction_date,
+                created_at=t.created_at,
+                card_last_four=t.card.last_four if t.card else None,
+                bank_name=bank_name,
+            )
         )
-        for t in transactions
-    ]
+
+    return result
 
 
 @router.post("/transactions", response_model=TransactionResponse, status_code=201)
@@ -651,20 +693,45 @@ async def create_transaction(
     db: Session = Depends(get_db),
     user_id: str = Depends(get_default_user_id),
 ):
-    """Create a new transaction."""
-    # Verify card belongs to user
-    card = (
-        db.query(Card)
-        .join(BankAccount)
-        .filter(Card.id == data.card_id, BankAccount.user_id == user_id)
-        .first()
-    )
+    """Create a new transaction.
 
-    if not card:
-        raise HTTPException(status_code=404, detail="Card not found")
+    Either card_id or bank_account_id must be provided.
+    """
+    # Validate that at least one source is provided
+    if not data.card_id and not data.bank_account_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Either card_id or bank_account_id must be provided",
+        )
+
+    card = None
+    account = None
+    bank_name = None
+
+    # Verify card or account belongs to user
+    if data.card_id:
+        card = (
+            db.query(Card)
+            .join(BankAccount)
+            .filter(Card.id == data.card_id, BankAccount.user_id == user_id)
+            .first()
+        )
+        if not card:
+            raise HTTPException(status_code=404, detail="Card not found")
+        bank_name = card.bank_account.bank_name
+    else:
+        account = (
+            db.query(BankAccount)
+            .filter(BankAccount.id == data.bank_account_id, BankAccount.user_id == user_id)
+            .first()
+        )
+        if not account:
+            raise HTTPException(status_code=404, detail="Bank account not found")
+        bank_name = account.bank_name
 
     transaction = Transaction(
         card_id=data.card_id,
+        bank_account_id=data.bank_account_id,
         amount=data.amount,
         currency=data.currency.upper(),
         merchant=data.merchant,
@@ -678,11 +745,13 @@ async def create_transaction(
     db.commit()
     db.refresh(transaction)
 
-    logger.info(f"Created transaction {transaction.id} for card {data.card_id}")
+    source = f"card {data.card_id}" if data.card_id else f"account {data.bank_account_id}"
+    logger.info(f"Created transaction {transaction.id} for {source}")
 
     return TransactionResponse(
         id=str(transaction.id),
-        card_id=str(transaction.card_id),
+        card_id=str(transaction.card_id) if transaction.card_id else None,
+        bank_account_id=str(transaction.bank_account_id) if transaction.bank_account_id else None,
         amount=transaction.amount,
         currency=transaction.currency,
         merchant=transaction.merchant,
@@ -691,7 +760,8 @@ async def create_transaction(
         transaction_type=transaction.transaction_type,
         transaction_date=transaction.transaction_date,
         created_at=transaction.created_at,
-        card_last_four=card.last_four,
+        card_last_four=card.last_four if card else None,
+        bank_name=bank_name,
     )
 
 
@@ -702,10 +772,18 @@ async def get_transaction(
     user_id: str = Depends(get_default_user_id),
 ):
     """Get a specific transaction."""
+    from sqlalchemy import or_
+
     transaction = (
         db.query(Transaction)
-        .join(Card)
-        .join(BankAccount)
+        .outerjoin(Card, Transaction.card_id == Card.id)
+        .outerjoin(
+            BankAccount,
+            or_(
+                Card.bank_account_id == BankAccount.id,
+                Transaction.bank_account_id == BankAccount.id,
+            ),
+        )
         .filter(Transaction.id == transaction_id, BankAccount.user_id == user_id)
         .first()
     )
@@ -713,9 +791,17 @@ async def get_transaction(
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
 
+    # Determine bank name from either card's account or direct account
+    bank_name = None
+    if transaction.card and transaction.card.bank_account:
+        bank_name = transaction.card.bank_account.bank_name
+    elif transaction.bank_account:
+        bank_name = transaction.bank_account.bank_name
+
     return TransactionResponse(
         id=str(transaction.id),
-        card_id=str(transaction.card_id),
+        card_id=str(transaction.card_id) if transaction.card_id else None,
+        bank_account_id=str(transaction.bank_account_id) if transaction.bank_account_id else None,
         amount=transaction.amount,
         currency=transaction.currency,
         merchant=transaction.merchant,
@@ -724,7 +810,8 @@ async def get_transaction(
         transaction_type=transaction.transaction_type,
         transaction_date=transaction.transaction_date,
         created_at=transaction.created_at,
-        card_last_four=transaction.card.last_four,
+        card_last_four=transaction.card.last_four if transaction.card else None,
+        bank_name=bank_name,
     )
 
 
@@ -736,10 +823,18 @@ async def update_transaction(
     user_id: str = Depends(get_default_user_id),
 ):
     """Update a transaction."""
+    from sqlalchemy import or_
+
     transaction = (
         db.query(Transaction)
-        .join(Card)
-        .join(BankAccount)
+        .outerjoin(Card, Transaction.card_id == Card.id)
+        .outerjoin(
+            BankAccount,
+            or_(
+                Card.bank_account_id == BankAccount.id,
+                Transaction.bank_account_id == BankAccount.id,
+            ),
+        )
         .filter(Transaction.id == transaction_id, BankAccount.user_id == user_id)
         .first()
     )
@@ -758,9 +853,17 @@ async def update_transaction(
 
     logger.info(f"Updated transaction {transaction_id}")
 
+    # Determine bank name from either card's account or direct account
+    bank_name = None
+    if transaction.card and transaction.card.bank_account:
+        bank_name = transaction.card.bank_account.bank_name
+    elif transaction.bank_account:
+        bank_name = transaction.bank_account.bank_name
+
     return TransactionResponse(
         id=str(transaction.id),
-        card_id=str(transaction.card_id),
+        card_id=str(transaction.card_id) if transaction.card_id else None,
+        bank_account_id=str(transaction.bank_account_id) if transaction.bank_account_id else None,
         amount=transaction.amount,
         currency=transaction.currency,
         merchant=transaction.merchant,
@@ -769,7 +872,8 @@ async def update_transaction(
         transaction_type=transaction.transaction_type,
         transaction_date=transaction.transaction_date,
         created_at=transaction.created_at,
-        card_last_four=transaction.card.last_four,
+        card_last_four=transaction.card.last_four if transaction.card else None,
+        bank_name=bank_name,
     )
 
 
@@ -780,10 +884,18 @@ async def delete_transaction(
     user_id: str = Depends(get_default_user_id),
 ):
     """Delete a transaction."""
+    from sqlalchemy import or_
+
     transaction = (
         db.query(Transaction)
-        .join(Card)
-        .join(BankAccount)
+        .outerjoin(Card, Transaction.card_id == Card.id)
+        .outerjoin(
+            BankAccount,
+            or_(
+                Card.bank_account_id == BankAccount.id,
+                Transaction.bank_account_id == BankAccount.id,
+            ),
+        )
         .filter(Transaction.id == transaction_id, BankAccount.user_id == user_id)
         .first()
     )
@@ -810,15 +922,26 @@ async def get_spending_by_category(
     db: Session = Depends(get_db),
     user_id: str = Depends(get_default_user_id),
 ):
-    """Get spending summary by category."""
+    """Get spending summary by category.
+
+    Includes both card transactions and direct bank account transactions.
+    """
+    from sqlalchemy import or_
+
     query = (
         db.query(
             Transaction.category,
             func.sum(Transaction.amount).label("total"),
             func.count(Transaction.id).label("count"),
         )
-        .join(Card)
-        .join(BankAccount)
+        .outerjoin(Card, Transaction.card_id == Card.id)
+        .outerjoin(
+            BankAccount,
+            or_(
+                Card.bank_account_id == BankAccount.id,
+                Transaction.bank_account_id == BankAccount.id,
+            ),
+        )
         .filter(
             BankAccount.user_id == user_id,
             Transaction.transaction_type == "debit",
@@ -851,15 +974,26 @@ async def get_monthly_spending(
     db: Session = Depends(get_db),
     user_id: str = Depends(get_default_user_id),
 ):
-    """Get monthly spending trend."""
+    """Get monthly spending trend.
+
+    Includes both card transactions and direct bank account transactions.
+    """
+    from sqlalchemy import or_
+
     query = (
         db.query(
             func.to_char(Transaction.transaction_date, "YYYY-MM").label("month"),
             func.sum(Transaction.amount).label("total"),
             func.count(Transaction.id).label("count"),
         )
-        .join(Card)
-        .join(BankAccount)
+        .outerjoin(Card, Transaction.card_id == Card.id)
+        .outerjoin(
+            BankAccount,
+            or_(
+                Card.bank_account_id == BankAccount.id,
+                Transaction.bank_account_id == BankAccount.id,
+            ),
+        )
         .filter(
             BankAccount.user_id == user_id,
             Transaction.transaction_type == "debit",

@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
@@ -44,6 +45,11 @@ class BankAccount(Base):
         "Card",
         back_populates="bank_account",
         cascade="all, delete-orphan",
+    )
+    transactions = relationship(
+        "Transaction",
+        back_populates="bank_account",
+        foreign_keys="Transaction.bank_account_id",
     )
 
 
@@ -99,10 +105,20 @@ class Transaction(Base):
         Index("idx_transactions_category", "category"),
         Index("idx_transactions_type", "transaction_type"),
         Index("idx_transactions_date", "transaction_date"),
+        Index("idx_transactions_bank_account", "bank_account_id"),
+        CheckConstraint(
+            "card_id IS NOT NULL OR bank_account_id IS NOT NULL",
+            name="ck_transaction_has_source",
+        ),
     )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    card_id = Column(UUID(as_uuid=True), ForeignKey("cards.id"), nullable=False, index=True)
+    # Card transactions (optional - NULL for direct bank transfers)
+    card_id = Column(UUID(as_uuid=True), ForeignKey("cards.id"), nullable=True, index=True)
+    # Direct bank account transactions (optional - NULL for card transactions)
+    bank_account_id = Column(
+        UUID(as_uuid=True), ForeignKey("bank_accounts.id"), nullable=True, index=True
+    )
     amount = Column(Numeric(precision=15, scale=2), nullable=False)
     currency = Column(String, nullable=False)  # Transaction currency
     merchant = Column(String, nullable=True)  # Store/vendor name
@@ -113,5 +129,8 @@ class Transaction(Base):
     raw_message = Column(Text, nullable=False)  # Original notification text
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-    # Relationship
+    # Relationships
     card = relationship("Card", back_populates="transactions")
+    bank_account = relationship(
+        "BankAccount", back_populates="transactions", foreign_keys=[bank_account_id]
+    )

@@ -47,7 +47,8 @@ export interface CardCreate {
 
 export interface Transaction {
   id: string;
-  card_id: string;
+  card_id: string | null;
+  bank_account_id: string | null;
   amount: number;
   currency: string;
   merchant: string | null;
@@ -56,11 +57,13 @@ export interface Transaction {
   transaction_type: "debit" | "credit" | "transfer";
   transaction_date: string;
   created_at: string;
-  card_last_four?: string;
+  card_last_four?: string | null;
+  bank_name?: string | null;
 }
 
 export interface TransactionCreate {
-  card_id: string;
+  card_id?: string | null;
+  bank_account_id?: string | null;
   amount: number;
   currency: string;
   merchant?: string | null;

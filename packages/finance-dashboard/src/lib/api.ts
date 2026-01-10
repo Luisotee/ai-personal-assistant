@@ -145,6 +145,7 @@ export async function deleteCard(id: string): Promise<void> {
 
 export interface TransactionFilters {
   card_id?: string;
+  account_id?: string;
   category?: string;
   transaction_type?: string;
   start_date?: string;
@@ -158,6 +159,7 @@ export async function getTransactions(
 ): Promise<Transaction[]> {
   const params = new URLSearchParams();
   if (filters.card_id) params.set("card_id", filters.card_id);
+  if (filters.account_id) params.set("account_id", filters.account_id);
   if (filters.category) params.set("category", filters.category);
   if (filters.transaction_type) params.set("transaction_type", filters.transaction_type);
   if (filters.start_date) params.set("start_date", filters.start_date);

@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import {
+  getAccounts,
   getCards,
   getTransactions,
   createTransaction,
@@ -36,12 +37,13 @@ import {
   deleteTransaction,
   type TransactionFilters,
 } from "@/lib/api";
-import type { Card as CardType, Transaction, TransactionCreate } from "@/lib/types";
+import type { BankAccount, Card as CardType, Transaction, TransactionCreate } from "@/lib/types";
 import { CATEGORIES, CURRENCIES } from "@/lib/types";
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [cards, setCards] = useState<CardType[]>([]);
+  const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -52,9 +54,11 @@ export default function TransactionsPage() {
     limit: 50,
   });
 
-  // Form state
+  // Form state - sourceType determines whether we use card or account
+  const [sourceType, setSourceType] = useState<"card" | "account">("card");
   const [formData, setFormData] = useState<TransactionCreate>({
-    card_id: "",
+    card_id: null,
+    bank_account_id: null,
     amount: 0,
     currency: "EUR",
     merchant: "",
@@ -68,12 +72,14 @@ export default function TransactionsPage() {
   async function fetchData() {
     try {
       setLoading(true);
-      const [transactionsData, cardsData] = await Promise.all([
+      const [transactionsData, cardsData, accountsData] = await Promise.all([
         getTransactions(filters),
         getCards(),
+        getAccounts(),
       ]);
       setTransactions(transactionsData);
       setCards(cardsData);
+      setAccounts(accountsData);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load data");
@@ -88,8 +94,12 @@ export default function TransactionsPage() {
   }, [filters]);
 
   function resetForm() {
+    // Default to card if available, otherwise account
+    const defaultToCard = cards.length > 0;
+    setSourceType(defaultToCard ? "card" : "account");
     setFormData({
-      card_id: cards[0]?.id || "",
+      card_id: defaultToCard ? cards[0]?.id : null,
+      bank_account_id: !defaultToCard ? accounts[0]?.id : null,
       amount: 0,
       currency: "EUR",
       merchant: "",
@@ -105,8 +115,11 @@ export default function TransactionsPage() {
     e.preventDefault();
 
     try {
-      const submitData = {
+      // Build submit data based on sourceType
+      const submitData: TransactionCreate = {
         ...formData,
+        card_id: sourceType === "card" ? formData.card_id : null,
+        bank_account_id: sourceType === "account" ? formData.bank_account_id : null,
         transaction_date: new Date(formData.transaction_date).toISOString(),
       };
 
@@ -137,8 +150,12 @@ export default function TransactionsPage() {
   }
 
   function openEdit(tx: Transaction) {
+    // Determine source type from the transaction
+    const isCardTransaction = !!tx.card_id;
+    setSourceType(isCardTransaction ? "card" : "account");
     setFormData({
       card_id: tx.card_id,
+      bank_account_id: tx.bank_account_id,
       amount: Math.abs(tx.amount),
       currency: tx.currency,
       merchant: tx.merchant || "",
@@ -175,7 +192,7 @@ export default function TransactionsPage() {
           }}
         >
           <DialogTrigger asChild>
-            <Button disabled={cards.length === 0}>Add Transaction</Button>
+            <Button disabled={cards.length === 0 && accounts.length === 0}>Add Transaction</Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
@@ -184,27 +201,96 @@ export default function TransactionsPage() {
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Source type selector */}
               <div className="space-y-2">
-                <Label htmlFor="card">Card</Label>
-                <Select
-                  value={formData.card_id}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, card_id: value })
-                  }
-                  disabled={!!editingTransaction}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select card" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {cards.map((card) => (
-                      <SelectItem key={card.id} value={card.id}>
-                        **** {card.last_four} ({card.bank_name})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Transaction Source</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={sourceType === "card" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setSourceType("card");
+                      setFormData({
+                        ...formData,
+                        card_id: cards[0]?.id || null,
+                        bank_account_id: null,
+                      });
+                    }}
+                    disabled={cards.length === 0 || !!editingTransaction}
+                  >
+                    Card
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={sourceType === "account" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setSourceType("account");
+                      setFormData({
+                        ...formData,
+                        card_id: null,
+                        bank_account_id: accounts[0]?.id || null,
+                      });
+                    }}
+                    disabled={accounts.length === 0 || !!editingTransaction}
+                  >
+                    Bank Transfer
+                  </Button>
+                </div>
+                <p className="text-xs text-slate-500">
+                  {sourceType === "card"
+                    ? "For card purchases, ATM withdrawals"
+                    : "For PIX, wire transfers, direct debits"}
+                </p>
               </div>
+
+              {/* Card or Account selector based on sourceType */}
+              {sourceType === "card" ? (
+                <div className="space-y-2">
+                  <Label htmlFor="card">Card</Label>
+                  <Select
+                    value={formData.card_id || ""}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, card_id: value })
+                    }
+                    disabled={!!editingTransaction}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select card" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cards.map((card) => (
+                        <SelectItem key={card.id} value={card.id}>
+                          **** {card.last_four} ({card.bank_name})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label htmlFor="account">Bank Account</Label>
+                  <Select
+                    value={formData.bank_account_id || ""}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, bank_account_id: value })
+                    }
+                    disabled={!!editingTransaction}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select account" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {accounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.bank_name} ({account.account_alias || account.account_type})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
@@ -348,9 +434,9 @@ export default function TransactionsPage() {
         <div className="rounded-lg bg-red-50 p-4 text-red-600">{error}</div>
       )}
 
-      {cards.length === 0 && (
+      {cards.length === 0 && accounts.length === 0 && (
         <div className="rounded-lg bg-amber-50 p-4 text-amber-700">
-          You need to create a card before adding transactions.
+          You need to create a bank account or card before adding transactions.
         </div>
       )}
 
@@ -456,7 +542,7 @@ export default function TransactionsPage() {
                   <TableHead>Date</TableHead>
                   <TableHead>Merchant</TableHead>
                   <TableHead>Category</TableHead>
-                  <TableHead>Card</TableHead>
+                  <TableHead>Source</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -480,7 +566,15 @@ export default function TransactionsPage() {
                         <span className="text-slate-400">-</span>
                       )}
                     </TableCell>
-                    <TableCell>**** {tx.card_last_four}</TableCell>
+                    <TableCell>
+                      {tx.card_id ? (
+                        <span className="text-sm">**** {tx.card_last_four}</span>
+                      ) : (
+                        <span className="text-sm text-slate-600">
+                          {tx.bank_name || "Bank"} <Badge variant="outline" className="ml-1 text-xs">Transfer</Badge>
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Badge
                         variant={tx.transaction_type === "credit" ? "default" : "secondary"}

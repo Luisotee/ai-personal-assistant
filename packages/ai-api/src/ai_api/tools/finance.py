@@ -457,12 +457,13 @@ def register_finance_tools(agent: Agent) -> None:
     @agent.tool
     async def record_transaction(
         ctx: RunContext[AgentDeps],
-        card_id: str,
         amount: float,
         currency: str,
         transaction_type: str,
         transaction_date: str,
         raw_message: str,
+        card_id: str | None = None,
+        bank_account_id: str | None = None,
         merchant: str | None = None,
         description: str | None = None,
         category: str | None = None,
@@ -470,26 +471,36 @@ def register_finance_tools(agent: Agent) -> None:
         """
         Record a new transaction from a bank notification.
 
+        IMPORTANT: Either card_id OR bank_account_id must be provided.
+        - Use card_id for card transactions (purchases, ATM withdrawals)
+        - Use bank_account_id for direct bank transfers (PIX, wire transfers, SEPA)
+
         Args:
             ctx: Run context with database and user info
-            card_id: The UUID of the card used for this transaction
             amount: Transaction amount (positive number)
             currency: Currency code (e.g., 'EUR', 'USD', 'BRL')
             transaction_type: Type of transaction ('debit', 'credit', 'transfer')
             transaction_date: Date of transaction in ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
             raw_message: The original bank notification message (for reference)
-            merchant: Optional merchant/store name
+            card_id: Optional UUID of the card used (for card transactions)
+            bank_account_id: Optional UUID of the bank account (for direct transfers like PIX)
+            merchant: Optional merchant/store name or transfer recipient
             description: Optional transaction description
-            category: Optional category (e.g., 'food', 'transport', 'shopping', 'entertainment')
+            category: Optional category (e.g., 'food', 'transport', 'shopping', 'transfer')
 
         Returns:
             Success message with transaction details or error
         """
         logger.info("=" * 80)
         logger.info("💸 FINANCE TOOL: record_transaction")
-        logger.info(f"   Card: {card_id}, Amount: {amount} {currency}, Type: {transaction_type}")
+        logger.info(f"   Card: {card_id}, Account: {bank_account_id}")
+        logger.info(f"   Amount: {amount} {currency}, Type: {transaction_type}")
         logger.info(f"   Merchant: {merchant}, Category: {category}")
         logger.info("=" * 80)
+
+        # Validate that at least one source is provided
+        if not card_id and not bank_account_id:
+            return "Error: Either card_id or bank_account_id must be provided. Use card_id for card transactions, bank_account_id for direct transfers (PIX, wire, etc.)"
 
         try:
             # Parse the date
@@ -505,24 +516,29 @@ def register_finance_tools(agent: Agent) -> None:
 
             transaction = record_transaction_fn(
                 db=ctx.deps.db,
-                card_id=card_id,
                 user_id=ctx.deps.user_id,
                 amount=Decimal(str(amount)),
                 currency=currency,
                 transaction_type=transaction_type,
                 transaction_date=parsed_date,
                 raw_message=raw_message,
+                card_id=card_id,
+                bank_account_id=bank_account_id,
                 merchant=merchant,
                 description=description,
                 category=category,
             )
 
             if not transaction:
-                return f"Card not found or doesn't belong to you: {card_id}"
+                if card_id:
+                    return f"Card not found or doesn't belong to you: {card_id}"
+                else:
+                    return f"Bank account not found or doesn't belong to you: {bank_account_id}"
 
             merchant_info = f" at {merchant}" if merchant else ""
             category_info = f" [{category}]" if category else ""
-            return f"Recorded {transaction_type}: {currency} {amount:.2f}{merchant_info}{category_info}"
+            source_info = " (card)" if card_id else " (bank transfer)"
+            return f"Recorded {transaction_type}: {currency} {amount:.2f}{merchant_info}{category_info}{source_info}"
         except Exception as e:
             logger.error(f"Failed to record transaction: {e}", exc_info=True)
             return f"Failed to record transaction: {str(e)}"

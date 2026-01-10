@@ -250,25 +250,43 @@ def delete_card(db: Session, card_id: str, user_id: str) -> bool:
 
 def record_transaction(
     db: Session,
-    card_id: str,
     user_id: str,
     amount: Decimal,
     currency: str,
     transaction_type: str,
     transaction_date: datetime,
     raw_message: str,
+    card_id: str | None = None,
+    bank_account_id: str | None = None,
     merchant: str | None = None,
     description: str | None = None,
     category: str | None = None,
 ) -> Transaction | None:
-    """Record a new transaction."""
-    # Verify card belongs to user
-    card = get_card_by_id(db, card_id, user_id)
-    if not card:
+    """Record a new transaction.
+
+    Either card_id or bank_account_id must be provided.
+    - Use card_id for card transactions (purchases, ATM withdrawals)
+    - Use bank_account_id for direct bank transfers (PIX, wire, SEPA)
+    """
+    if not card_id and not bank_account_id:
+        logger.error("Either card_id or bank_account_id must be provided")
         return None
 
+    # Verify card or account belongs to user
+    if card_id:
+        card = get_card_by_id(db, card_id, user_id)
+        if not card:
+            logger.error(f"Card not found or doesn't belong to user: {card_id}")
+            return None
+    else:
+        account = get_bank_account_by_id(db, bank_account_id, user_id)
+        if not account:
+            logger.error(f"Bank account not found or doesn't belong to user: {bank_account_id}")
+            return None
+
     transaction = Transaction(
-        card_id=UUID(card_id),
+        card_id=UUID(card_id) if card_id else None,
+        bank_account_id=UUID(bank_account_id) if bank_account_id else None,
         amount=amount,
         currency=currency.upper(),
         merchant=merchant,
@@ -281,7 +299,10 @@ def record_transaction(
     db.add(transaction)
     db.commit()
     db.refresh(transaction)
-    logger.info(f"Recorded transaction: {amount} {currency} at {merchant or 'unknown'}")
+    source = f"card {card_id}" if card_id else f"account {bank_account_id}"
+    logger.info(
+        f"Recorded transaction: {amount} {currency} via {source} at {merchant or 'unknown'}"
+    )
     return transaction
 
 
@@ -292,15 +313,30 @@ def get_user_transactions(
     category: str | None = None,
     merchant: str | None = None,
     card_id: str | None = None,
+    bank_account_id: str | None = None,
     limit: int = 50,
 ) -> list[Transaction]:
-    """Get transactions for a user with optional filters."""
+    """Get transactions for a user with optional filters.
+
+    Includes both card transactions and direct bank account transactions.
+    """
+    from sqlalchemy import or_
+
     since = datetime.utcnow() - timedelta(days=days)
 
+    # Query transactions via either path:
+    # 1. Card transactions: card_id -> Card -> BankAccount -> user_id
+    # 2. Direct bank transactions: bank_account_id -> BankAccount -> user_id
     query = (
         db.query(Transaction)
-        .join(Card)
-        .join(BankAccount)
+        .outerjoin(Card, Transaction.card_id == Card.id)
+        .outerjoin(
+            BankAccount,
+            or_(
+                Card.bank_account_id == BankAccount.id,
+                Transaction.bank_account_id == BankAccount.id,
+            ),
+        )
         .filter(
             BankAccount.user_id == UUID(user_id),
             Transaction.transaction_date >= since,
@@ -313,6 +349,14 @@ def get_user_transactions(
         query = query.filter(Transaction.merchant.ilike(f"%{merchant}%"))
     if card_id:
         query = query.filter(Transaction.card_id == UUID(card_id))
+    if bank_account_id:
+        # Filter by account - includes both direct and card transactions for that account
+        query = query.filter(
+            or_(
+                Transaction.bank_account_id == UUID(bank_account_id),
+                Card.bank_account_id == UUID(bank_account_id),
+            )
+        )
 
     return query.order_by(Transaction.transaction_date.desc()).limit(limit).all()
 
@@ -323,14 +367,44 @@ def get_spending_summary(
     days: int = 30,
     group_by: str = "category",
 ) -> dict:
-    """Get spending summary with totals grouped by category or other fields."""
+    """Get spending summary with totals grouped by category or other fields.
+
+    Includes both card transactions and direct bank account transactions.
+    """
+    from sqlalchemy import or_
+
     since = datetime.utcnow() - timedelta(days=days)
+
+    # Base query for transactions via either path
+    def _base_query():
+        return (
+            db.query(Transaction)
+            .outerjoin(Card, Transaction.card_id == Card.id)
+            .outerjoin(
+                BankAccount,
+                or_(
+                    Card.bank_account_id == BankAccount.id,
+                    Transaction.bank_account_id == BankAccount.id,
+                ),
+            )
+            .filter(
+                BankAccount.user_id == UUID(user_id),
+                Transaction.transaction_date >= since,
+            )
+        )
 
     # Total spending (debits only)
     total_spending = (
         db.query(func.sum(Transaction.amount))
-        .join(Card)
-        .join(BankAccount)
+        .select_from(Transaction)
+        .outerjoin(Card, Transaction.card_id == Card.id)
+        .outerjoin(
+            BankAccount,
+            or_(
+                Card.bank_account_id == BankAccount.id,
+                Transaction.bank_account_id == BankAccount.id,
+            ),
+        )
         .filter(
             BankAccount.user_id == UUID(user_id),
             Transaction.transaction_date >= since,
@@ -342,8 +416,15 @@ def get_spending_summary(
     # Total income (credits only)
     total_income = (
         db.query(func.sum(Transaction.amount))
-        .join(Card)
-        .join(BankAccount)
+        .select_from(Transaction)
+        .outerjoin(Card, Transaction.card_id == Card.id)
+        .outerjoin(
+            BankAccount,
+            or_(
+                Card.bank_account_id == BankAccount.id,
+                Transaction.bank_account_id == BankAccount.id,
+            ),
+        )
         .filter(
             BankAccount.user_id == UUID(user_id),
             Transaction.transaction_date >= since,
@@ -355,8 +436,15 @@ def get_spending_summary(
     # Transaction count
     transaction_count = (
         db.query(func.count(Transaction.id))
-        .join(Card)
-        .join(BankAccount)
+        .select_from(Transaction)
+        .outerjoin(Card, Transaction.card_id == Card.id)
+        .outerjoin(
+            BankAccount,
+            or_(
+                Card.bank_account_id == BankAccount.id,
+                Transaction.bank_account_id == BankAccount.id,
+            ),
+        )
         .filter(
             BankAccount.user_id == UUID(user_id),
             Transaction.transaction_date >= since,
@@ -378,8 +466,15 @@ def get_spending_summary(
             func.sum(Transaction.amount).label("total"),
             func.count(Transaction.id).label("count"),
         )
-        .join(Card)
-        .join(BankAccount)
+        .select_from(Transaction)
+        .outerjoin(Card, Transaction.card_id == Card.id)
+        .outerjoin(
+            BankAccount,
+            or_(
+                Card.bank_account_id == BankAccount.id,
+                Transaction.bank_account_id == BankAccount.id,
+            ),
+        )
         .filter(
             BankAccount.user_id == UUID(user_id),
             Transaction.transaction_date >= since,
