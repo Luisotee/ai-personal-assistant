@@ -53,6 +53,11 @@ class User(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
+    bank_accounts = relationship(
+        "BankAccount",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
 
 class ConversationMessage(Base):
@@ -99,6 +104,10 @@ class ConversationPreferences(Base):
 
     # Relationship
     user = relationship("User", back_populates="preferences")
+
+
+# Import finance models to register them with Base.metadata
+from . import finance_models  # noqa: E402, F401
 
 
 def init_db():
