@@ -16,6 +16,7 @@ from fastapi import (
     Response,
     UploadFile,
 )
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from .agent import AgentDeps, format_message_history, get_ai_response
@@ -36,6 +37,7 @@ from .processing import process_pdf_document
 from .queue.connection import close_arq_redis, get_arq_redis, get_redis_client
 from .queue.schemas import ChunkData, EnqueueResponse, JobStatusResponse
 from .queue.utils import get_job_chunks, get_job_metadata, save_job_image
+from .routes import finance_router
 from .schemas import (
     BatchUploadResponse,
     ChatRequest,
@@ -123,6 +125,21 @@ app = FastAPI(
     """,
     lifespan=lifespan,
 )
+
+# Configure CORS for finance dashboard
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3002",  # Finance dashboard
+        "http://127.0.0.1:3002",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include finance router
+app.include_router(finance_router)
 
 # Configure upload directory for knowledge base PDFs
 UPLOAD_DIR = Path(settings.kb_upload_dir)

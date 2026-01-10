@@ -83,6 +83,9 @@ class Settings(BaseSettings):
     # External APIs
     jina_api_key: str | None = None  # Optional, for higher rate limits (500 vs 20 RPM)
 
+    # Finance Dashboard (single-user mode)
+    default_whatsapp_jid: str | None = None  # Default user for web dashboard
+
     model_config = SettingsConfigDict(
         env_file=get_env_files(),
         env_file_encoding="utf-8",
