@@ -1,0 +1,64 @@
+[project]
+name = "ai-api"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "luisotee", email = "luisotaviomgr1@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "arq>=0.26.3",
+    "ddgs>=9.10.0",
+    "docling>=2.64.0",
+    "docling-core[chunking-openai]>=2.54.1",
+    "fastapi>=0.122.0",
+    "google-genai>=1.52.0",
+    "groq>=0.36.0",
+    "httpx>=0.28.1",
+    "litellm>=1.80.7",
+    "numpy>=2.3.5",
+    "pgvector>=0.3.6",
+    "pint>=0.25.2",
+    "psycopg2-binary>=2.9.11",
+    "pydantic-ai>=1.25.1",
+    "pydantic-settings>=2.12.0",
+    "pydub>=0.25.1",
+    "python-dotenv>=1.2.1",
+    "redis[hiredis]>=5.0.0",
+    "simpleeval>=1.0.3",
+    "sqlalchemy>=2.0.44",
+    "tiktoken>=0.8.0",
+    "uvicorn>=0.38.0",
+    "wikipedia-api>=0.8.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.8.14,<0.9.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.11",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [".venv", "__pycache__", "build", "dist"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line length handled by formatter
+    "E402",  # allow imports after load_dotenv() in scripts
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

@@ -1,0 +1,30 @@
+{
+  "name": "ai-boilerplate",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev:server": "cd packages/ai-api && uv run uvicorn ai_api.main:app --reload --host 0.0.0.0 --port 8000",
+    "dev:whatsapp": "pnpm --filter @ai-boilerplate/whatsapp-client dev",
+    "dev:queue": "cd packages/ai-api && uv run python -m ai_api.scripts.run_stream_worker",
+    "install:all": "pnpm install && cd packages/ai-api && uv sync",
+    "lint": "eslint packages/whatsapp-client/src && cd packages/ai-api && uv run ruff check .",
+    "lint:fix": "eslint packages/whatsapp-client/src --fix && cd packages/ai-api && uv run ruff check . --fix",
+    "format": "prettier --write packages/whatsapp-client/src && cd packages/ai-api && uv run ruff format .",
+    "format:check": "prettier --check packages/whatsapp-client/src && cd packages/ai-api && uv run ruff format . --check",
+    "prepare": "husky"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.14.0",
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
+    "prettier": "^3.7.4",
+    "typescript-eslint": "^8.52.0"
+  }
+}
