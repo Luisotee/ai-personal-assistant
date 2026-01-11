@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -28,6 +29,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   getAccounts,
   createAccount,
@@ -37,6 +40,22 @@ import {
 } from "@/lib/api";
 import type { BankAccount, BankAccountCreate } from "@/lib/types";
 import { COUNTRIES, CURRENCIES } from "@/lib/types";
+
+function AccountsTableSkeleton() {
+  return (
+    <div className="space-y-4">
+      {[...Array(3)].map((_, i) => (
+        <div key={i} className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+          <Skeleton className="h-6 w-20" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
@@ -90,10 +109,19 @@ export default function AccountsPage() {
     e.preventDefault();
 
     try {
+      // Clean up optional fields - send null instead of empty strings
+      const cleanedData: BankAccountCreate = {
+        bank_name: formData.bank_name,
+        country: formData.country,
+        account_type: formData.account_type,
+        account_alias: formData.account_alias?.trim() || null,
+        last_four: formData.last_four?.trim() || null,
+      };
+
       if (editingAccount) {
-        await updateAccount(editingAccount.id, formData);
+        await updateAccount(editingAccount.id, cleanedData);
       } else {
-        await createAccount(formData);
+        await createAccount(cleanedData);
       }
 
       await fetchAccounts();
@@ -142,18 +170,15 @@ export default function AccountsPage() {
     setIsCreateOpen(true);
   }
 
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="text-lg text-slate-500">Loading accounts...</div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Bank Accounts</h1>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Bank Accounts</h1>
+          <p className="text-muted-foreground">
+            Manage your bank accounts and balances
+          </p>
+        </div>
         <Dialog
           open={isCreateOpen}
           onOpenChange={(open) => {
@@ -278,7 +303,7 @@ export default function AccountsPage() {
       </div>
 
       {error && (
-        <div className="rounded-lg bg-red-50 p-4 text-red-600">{error}</div>
+        <div className="rounded-lg bg-destructive/10 p-4 text-destructive">{error}</div>
       )}
 
       {/* Balance Update Dialog */}
@@ -298,7 +323,7 @@ export default function AccountsPage() {
           <form onSubmit={handleUpdateBalance} className="space-y-4">
             <div className="space-y-2">
               <Label>Account</Label>
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-muted-foreground">
                 {balanceAccount?.bank_name} ({balanceAccount?.account_alias || "No alias"})
               </p>
             </div>
@@ -360,7 +385,9 @@ export default function AccountsPage() {
           <CardTitle>Your Accounts</CardTitle>
         </CardHeader>
         <CardContent>
-          {accounts.length > 0 ? (
+          {loading ? (
+            <AccountsTableSkeleton />
+          ) : accounts.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -378,7 +405,7 @@ export default function AccountsPage() {
                     <TableCell className="font-medium">
                       {account.bank_name}
                       {account.last_four && (
-                        <span className="ml-2 text-slate-400">
+                        <span className="ml-2 text-muted-foreground">
                           ****{account.last_four}
                         </span>
                       )}
@@ -401,7 +428,7 @@ export default function AccountsPage() {
                           ))}
                         </div>
                       ) : (
-                        <span className="text-slate-400">No balances</span>
+                        <span className="text-muted-foreground">No balances</span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
@@ -423,7 +450,7 @@ export default function AccountsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-red-600 hover:text-red-700"
+                          className="text-destructive hover:text-destructive"
                           onClick={() => handleDelete(account.id)}
                         >
                           Delete
@@ -435,9 +462,16 @@ export default function AccountsPage() {
               </TableBody>
             </Table>
           ) : (
-            <div className="py-8 text-center text-slate-500">
-              No accounts yet. Add your first bank account to get started.
-            </div>
+            <EmptyState
+              icon={Building2}
+              title="No accounts yet"
+              description="Add your first bank account to get started tracking your finances."
+              action={
+                <Button onClick={() => setIsCreateOpen(true)}>
+                  Add Account
+                </Button>
+              }
+            />
           )}
         </CardContent>
       </Card>

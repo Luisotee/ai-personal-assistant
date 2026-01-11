@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CreditCard, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -28,6 +29,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   getAccounts,
   getCards,
@@ -36,6 +39,22 @@ import {
   deleteCard,
 } from "@/lib/api";
 import type { BankAccount, Card as CardType, CardCreate } from "@/lib/types";
+
+function CardsTableSkeleton() {
+  return (
+    <div className="space-y-4">
+      {[...Array(3)].map((_, i) => (
+        <div key={i} className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-3 w-32" />
+          </div>
+          <Skeleton className="h-6 w-16" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function CardsPage() {
   const [cards, setCards] = useState<CardType[]>([]);
@@ -140,18 +159,15 @@ export default function CardsPage() {
     setIsCreateOpen(true);
   }
 
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="text-lg text-slate-500">Loading cards...</div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Cards</h1>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Cards</h1>
+          <p className="text-muted-foreground">
+            Manage your debit and credit cards
+          </p>
+        </div>
         <Dialog
           open={isCreateOpen}
           onOpenChange={(open) => {
@@ -280,12 +296,13 @@ export default function CardsPage() {
       </div>
 
       {error && (
-        <div className="rounded-lg bg-red-50 p-4 text-red-600">{error}</div>
+        <div className="rounded-lg bg-destructive/10 p-4 text-destructive">{error}</div>
       )}
 
-      {accounts.length === 0 && (
-        <div className="rounded-lg bg-amber-50 p-4 text-amber-700">
-          You need to create a bank account before adding cards.
+      {accounts.length === 0 && !loading && (
+        <div className="flex items-center gap-3 rounded-lg bg-warning/10 p-4 text-warning">
+          <AlertTriangle className="size-5" />
+          <span>You need to create a bank account before adding cards.</span>
         </div>
       )}
 
@@ -295,7 +312,9 @@ export default function CardsPage() {
           <CardTitle>Your Cards</CardTitle>
         </CardHeader>
         <CardContent>
-          {cards.length > 0 ? (
+          {loading ? (
+            <CardsTableSkeleton />
+          ) : cards.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -325,7 +344,7 @@ export default function CardsPage() {
                     <TableCell>
                       <Badge
                         variant={card.is_active ? "default" : "secondary"}
-                        className={card.is_active ? "bg-green-600" : ""}
+                        className={card.is_active ? "bg-success hover:bg-success/80" : ""}
                       >
                         {card.is_active ? "Active" : "Inactive"}
                       </Badge>
@@ -349,7 +368,7 @@ export default function CardsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-red-600 hover:text-red-700"
+                          className="text-destructive hover:text-destructive"
                           onClick={() => handleDelete(card.id)}
                         >
                           Delete
@@ -360,10 +379,23 @@ export default function CardsPage() {
                 ))}
               </TableBody>
             </Table>
+          ) : accounts.length > 0 ? (
+            <EmptyState
+              icon={CreditCard}
+              title="No cards yet"
+              description="Add your first card to start tracking transactions."
+              action={
+                <Button onClick={() => setIsCreateOpen(true)}>
+                  Add Card
+                </Button>
+              }
+            />
           ) : (
-            <div className="py-8 text-center text-slate-500">
-              No cards yet. Add your first card to start tracking transactions.
-            </div>
+            <EmptyState
+              icon={CreditCard}
+              title="No cards yet"
+              description="Create a bank account first, then add your cards."
+            />
           )}
         </CardContent>
       </Card>

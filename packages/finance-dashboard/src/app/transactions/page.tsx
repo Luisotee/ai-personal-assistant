@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Receipt, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -28,6 +29,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   getAccounts,
   getCards,
@@ -39,6 +42,22 @@ import {
 } from "@/lib/api";
 import type { BankAccount, Card as CardType, Transaction, TransactionCreate } from "@/lib/types";
 import { CATEGORIES, CURRENCIES } from "@/lib/types";
+
+function TransactionsTableSkeleton() {
+  return (
+    <div className="space-y-4">
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-3 w-32" />
+          </div>
+          <Skeleton className="h-5 w-20" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -169,18 +188,21 @@ export default function TransactionsPage() {
     setIsCreateOpen(true);
   }
 
-  if (loading && transactions.length === 0) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="text-lg text-slate-500">Loading transactions...</div>
-      </div>
-    );
-  }
+  const formatCurrency = (value: number, currency: string) =>
+    new Intl.NumberFormat("de-DE", {
+      style: "currency",
+      currency,
+    }).format(Math.abs(value));
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Transactions</h1>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Transactions</h1>
+          <p className="text-muted-foreground">
+            View and manage your transactions
+          </p>
+        </div>
         <Dialog
           open={isCreateOpen}
           onOpenChange={(open) => {
@@ -238,7 +260,7 @@ export default function TransactionsPage() {
                     Bank Transfer
                   </Button>
                 </div>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted-foreground">
                   {sourceType === "card"
                     ? "For card purchases, ATM withdrawals"
                     : "For PIX, wire transfers, direct debits"}
@@ -431,12 +453,13 @@ export default function TransactionsPage() {
       </div>
 
       {error && (
-        <div className="rounded-lg bg-red-50 p-4 text-red-600">{error}</div>
+        <div className="rounded-lg bg-destructive/10 p-4 text-destructive">{error}</div>
       )}
 
-      {cards.length === 0 && accounts.length === 0 && (
-        <div className="rounded-lg bg-amber-50 p-4 text-amber-700">
-          You need to create a bank account or card before adding transactions.
+      {cards.length === 0 && accounts.length === 0 && !loading && (
+        <div className="flex items-center gap-3 rounded-lg bg-warning/10 p-4 text-warning">
+          <AlertTriangle className="size-5" />
+          <span>You need to create a bank account or card before adding transactions.</span>
         </div>
       )}
 
@@ -535,7 +558,9 @@ export default function TransactionsPage() {
           <CardTitle>Transactions</CardTitle>
         </CardHeader>
         <CardContent>
-          {transactions.length > 0 ? (
+          {loading && transactions.length === 0 ? (
+            <TransactionsTableSkeleton />
+          ) : transactions.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -563,14 +588,14 @@ export default function TransactionsPage() {
                           {tx.category.charAt(0).toUpperCase() + tx.category.slice(1)}
                         </Badge>
                       ) : (
-                        <span className="text-slate-400">-</span>
+                        <span className="text-muted-foreground">-</span>
                       )}
                     </TableCell>
                     <TableCell>
                       {tx.card_id ? (
                         <span className="text-sm">**** {tx.card_last_four}</span>
                       ) : (
-                        <span className="text-sm text-slate-600">
+                        <span className="text-sm text-muted-foreground">
                           {tx.bank_name || "Bank"} <Badge variant="outline" className="ml-1 text-xs">Transfer</Badge>
                         </span>
                       )}
@@ -578,7 +603,7 @@ export default function TransactionsPage() {
                     <TableCell>
                       <Badge
                         variant={tx.transaction_type === "credit" ? "default" : "secondary"}
-                        className={tx.transaction_type === "credit" ? "bg-green-600" : ""}
+                        className={tx.transaction_type === "credit" ? "bg-success hover:bg-success/80" : ""}
                       >
                         {tx.transaction_type}
                       </Badge>
@@ -586,15 +611,12 @@ export default function TransactionsPage() {
                     <TableCell
                       className={`text-right font-semibold ${
                         tx.transaction_type === "credit"
-                          ? "text-green-600"
-                          : "text-red-600"
+                          ? "text-success"
+                          : "text-destructive"
                       }`}
                     >
                       {tx.transaction_type === "credit" ? "+" : "-"}
-                      {new Intl.NumberFormat("de-DE", {
-                        style: "currency",
-                        currency: tx.currency,
-                      }).format(Math.abs(tx.amount))}
+                      {formatCurrency(tx.amount, tx.currency)}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
@@ -608,7 +630,7 @@ export default function TransactionsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-red-600 hover:text-red-700"
+                          className="text-destructive hover:text-destructive"
                           onClick={() => handleDelete(tx.id)}
                         >
                           Delete
@@ -620,9 +642,22 @@ export default function TransactionsPage() {
               </TableBody>
             </Table>
           ) : (
-            <div className="py-8 text-center text-slate-500">
-              No transactions found.
-            </div>
+            <EmptyState
+              icon={Receipt}
+              title="No transactions found"
+              description={
+                cards.length === 0 && accounts.length === 0
+                  ? "Create a bank account or card first, then add transactions."
+                  : "Add your first transaction to start tracking your spending."
+              }
+              action={
+                cards.length > 0 || accounts.length > 0 ? (
+                  <Button onClick={() => setIsCreateOpen(true)}>
+                    Add Transaction
+                  </Button>
+                ) : undefined
+              }
+            />
           )}
         </CardContent>
       </Card>
