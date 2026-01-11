@@ -1,25 +1,25 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { Receipt, AlertTriangle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useState } from 'react';
+import { Receipt, AlertTriangle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -27,10 +27,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { EmptyState } from "@/components/ui/empty-state";
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
   getAccounts,
   getCards,
@@ -39,9 +39,9 @@ import {
   updateTransaction,
   deleteTransaction,
   type TransactionFilters,
-} from "@/lib/api";
-import type { BankAccount, Card as CardType, Transaction, TransactionCreate } from "@/lib/types";
-import { CATEGORIES, CURRENCIES } from "@/lib/types";
+} from '@/lib/api';
+import type { BankAccount, Card as CardType, Transaction, TransactionCreate } from '@/lib/types';
+import { CATEGORIES, CURRENCIES } from '@/lib/types';
 
 function TransactionsTableSkeleton() {
   return (
@@ -74,18 +74,18 @@ export default function TransactionsPage() {
   });
 
   // Form state - sourceType determines whether we use card or account
-  const [sourceType, setSourceType] = useState<"card" | "account">("card");
+  const [sourceType, setSourceType] = useState<'card' | 'account'>('card');
   const [formData, setFormData] = useState<TransactionCreate>({
     card_id: null,
     bank_account_id: null,
     amount: 0,
-    currency: "EUR",
-    merchant: "",
-    description: "",
-    category: "",
-    transaction_type: "debit",
-    transaction_date: new Date().toISOString().split("T")[0],
-    raw_message: "",
+    currency: 'EUR',
+    merchant: '',
+    description: '',
+    category: '',
+    transaction_type: 'debit',
+    transaction_date: new Date().toISOString().split('T')[0],
+    raw_message: '',
   });
 
   async function fetchData() {
@@ -101,7 +101,7 @@ export default function TransactionsPage() {
       setAccounts(accountsData);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load data");
+      setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
       setLoading(false);
     }
@@ -115,18 +115,18 @@ export default function TransactionsPage() {
   function resetForm() {
     // Default to card if available, otherwise account
     const defaultToCard = cards.length > 0;
-    setSourceType(defaultToCard ? "card" : "account");
+    setSourceType(defaultToCard ? 'card' : 'account');
     setFormData({
       card_id: defaultToCard ? cards[0]?.id : null,
       bank_account_id: !defaultToCard ? accounts[0]?.id : null,
       amount: 0,
-      currency: "EUR",
-      merchant: "",
-      description: "",
-      category: "",
-      transaction_type: "debit",
-      transaction_date: new Date().toISOString().split("T")[0],
-      raw_message: "",
+      currency: 'EUR',
+      merchant: '',
+      description: '',
+      category: '',
+      transaction_type: 'debit',
+      transaction_date: new Date().toISOString().split('T')[0],
+      raw_message: '',
     });
   }
 
@@ -137,8 +137,8 @@ export default function TransactionsPage() {
       // Build submit data based on sourceType
       const submitData: TransactionCreate = {
         ...formData,
-        card_id: sourceType === "card" ? formData.card_id : null,
-        bank_account_id: sourceType === "account" ? formData.bank_account_id : null,
+        card_id: sourceType === 'card' ? formData.card_id : null,
+        bank_account_id: sourceType === 'account' ? formData.bank_account_id : null,
         transaction_date: new Date(formData.transaction_date).toISOString(),
       };
 
@@ -153,44 +153,44 @@ export default function TransactionsPage() {
       setEditingTransaction(null);
       resetForm();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save transaction");
+      setError(err instanceof Error ? err.message : 'Failed to save transaction');
     }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Are you sure you want to delete this transaction?")) return;
+    if (!confirm('Are you sure you want to delete this transaction?')) return;
 
     try {
       await deleteTransaction(id);
       await fetchData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete transaction");
+      setError(err instanceof Error ? err.message : 'Failed to delete transaction');
     }
   }
 
   function openEdit(tx: Transaction) {
     // Determine source type from the transaction
     const isCardTransaction = !!tx.card_id;
-    setSourceType(isCardTransaction ? "card" : "account");
+    setSourceType(isCardTransaction ? 'card' : 'account');
     setFormData({
       card_id: tx.card_id,
       bank_account_id: tx.bank_account_id,
       amount: Math.abs(tx.amount),
       currency: tx.currency,
-      merchant: tx.merchant || "",
-      description: tx.description || "",
-      category: tx.category || "",
+      merchant: tx.merchant || '',
+      description: tx.description || '',
+      category: tx.category || '',
       transaction_type: tx.transaction_type,
-      transaction_date: tx.transaction_date.split("T")[0],
-      raw_message: "",
+      transaction_date: tx.transaction_date.split('T')[0],
+      raw_message: '',
     });
     setEditingTransaction(tx);
     setIsCreateOpen(true);
   }
 
   const formatCurrency = (value: number, currency: string) =>
-    new Intl.NumberFormat("de-DE", {
-      style: "currency",
+    new Intl.NumberFormat('de-DE', {
+      style: 'currency',
       currency,
     }).format(Math.abs(value));
 
@@ -199,9 +199,7 @@ export default function TransactionsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Transactions</h1>
-          <p className="text-muted-foreground">
-            View and manage your transactions
-          </p>
+          <p className="text-muted-foreground">View and manage your transactions</p>
         </div>
         <Dialog
           open={isCreateOpen}
@@ -219,7 +217,7 @@ export default function TransactionsPage() {
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>
-                {editingTransaction ? "Edit Transaction" : "Add Transaction"}
+                {editingTransaction ? 'Edit Transaction' : 'Add Transaction'}
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -229,10 +227,10 @@ export default function TransactionsPage() {
                 <div className="flex gap-2">
                   <Button
                     type="button"
-                    variant={sourceType === "card" ? "default" : "outline"}
+                    variant={sourceType === 'card' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => {
-                      setSourceType("card");
+                      setSourceType('card');
                       setFormData({
                         ...formData,
                         card_id: cards[0]?.id || null,
@@ -245,10 +243,10 @@ export default function TransactionsPage() {
                   </Button>
                   <Button
                     type="button"
-                    variant={sourceType === "account" ? "default" : "outline"}
+                    variant={sourceType === 'account' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => {
-                      setSourceType("account");
+                      setSourceType('account');
                       setFormData({
                         ...formData,
                         card_id: null,
@@ -261,21 +259,19 @@ export default function TransactionsPage() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {sourceType === "card"
-                    ? "For card purchases, ATM withdrawals"
-                    : "For PIX, wire transfers, direct debits"}
+                  {sourceType === 'card'
+                    ? 'For card purchases, ATM withdrawals'
+                    : 'For PIX, wire transfers, direct debits'}
                 </p>
               </div>
 
               {/* Card or Account selector based on sourceType */}
-              {sourceType === "card" ? (
+              {sourceType === 'card' ? (
                 <div className="space-y-2">
                   <Label htmlFor="card">Card</Label>
                   <Select
-                    value={formData.card_id || ""}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, card_id: value })
-                    }
+                    value={formData.card_id || ''}
+                    onValueChange={(value) => setFormData({ ...formData, card_id: value })}
                     disabled={!!editingTransaction}
                   >
                     <SelectTrigger>
@@ -294,10 +290,8 @@ export default function TransactionsPage() {
                 <div className="space-y-2">
                   <Label htmlFor="account">Bank Account</Label>
                   <Select
-                    value={formData.bank_account_id || ""}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, bank_account_id: value })
-                    }
+                    value={formData.bank_account_id || ''}
+                    onValueChange={(value) => setFormData({ ...formData, bank_account_id: value })}
                     disabled={!!editingTransaction}
                   >
                     <SelectTrigger>
@@ -334,9 +328,7 @@ export default function TransactionsPage() {
                   <Label htmlFor="currency">Currency</Label>
                   <Select
                     value={formData.currency}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, currency: value })
-                    }
+                    onValueChange={(value) => setFormData({ ...formData, currency: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -355,7 +347,7 @@ export default function TransactionsPage() {
                   <Label htmlFor="transaction_type">Type</Label>
                   <Select
                     value={formData.transaction_type}
-                    onValueChange={(value: "debit" | "credit" | "transfer") =>
+                    onValueChange={(value: 'debit' | 'credit' | 'transfer') =>
                       setFormData({ ...formData, transaction_type: value })
                     }
                   >
@@ -376,10 +368,8 @@ export default function TransactionsPage() {
                   <Label htmlFor="merchant">Merchant</Label>
                   <Input
                     id="merchant"
-                    value={formData.merchant || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, merchant: e.target.value })
-                    }
+                    value={formData.merchant || ''}
+                    onChange={(e) => setFormData({ ...formData, merchant: e.target.value })}
                     placeholder="e.g., Amazon, REWE"
                   />
                 </div>
@@ -387,10 +377,8 @@ export default function TransactionsPage() {
                 <div className="space-y-2">
                   <Label htmlFor="category">Category</Label>
                   <Select
-                    value={formData.category || ""}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, category: value })
-                    }
+                    value={formData.category || ''}
+                    onValueChange={(value) => setFormData({ ...formData, category: value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select category" />
@@ -412,9 +400,7 @@ export default function TransactionsPage() {
                   id="transaction_date"
                   type="date"
                   value={formData.transaction_date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, transaction_date: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, transaction_date: e.target.value })}
                   required
                 />
               </div>
@@ -423,10 +409,8 @@ export default function TransactionsPage() {
                 <Label htmlFor="description">Description (optional)</Label>
                 <Input
                   id="description"
-                  value={formData.description || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
+                  value={formData.description || ''}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Additional notes"
                 />
               </div>
@@ -444,7 +428,7 @@ export default function TransactionsPage() {
                   Cancel
                 </Button>
                 <Button type="submit">
-                  {editingTransaction ? "Save Changes" : "Create Transaction"}
+                  {editingTransaction ? 'Save Changes' : 'Create Transaction'}
                 </Button>
               </div>
             </form>
@@ -452,9 +436,7 @@ export default function TransactionsPage() {
         </Dialog>
       </div>
 
-      {error && (
-        <div className="rounded-lg bg-destructive/10 p-4 text-destructive">{error}</div>
-      )}
+      {error && <div className="rounded-lg bg-destructive/10 p-4 text-destructive">{error}</div>}
 
       {cards.length === 0 && accounts.length === 0 && !loading && (
         <div className="flex items-center gap-3 rounded-lg bg-warning/10 p-4 text-warning">
@@ -472,11 +454,11 @@ export default function TransactionsPage() {
           <div className="flex flex-wrap gap-4">
             <div className="w-40">
               <Select
-                value={filters.card_id || "all"}
+                value={filters.card_id || 'all'}
                 onValueChange={(value) =>
                   setFilters({
                     ...filters,
-                    card_id: value === "all" ? undefined : value,
+                    card_id: value === 'all' ? undefined : value,
                   })
                 }
               >
@@ -496,11 +478,11 @@ export default function TransactionsPage() {
 
             <div className="w-40">
               <Select
-                value={filters.category || "all"}
+                value={filters.category || 'all'}
                 onValueChange={(value) =>
                   setFilters({
                     ...filters,
-                    category: value === "all" ? undefined : value,
+                    category: value === 'all' ? undefined : value,
                   })
                 }
               >
@@ -520,11 +502,11 @@ export default function TransactionsPage() {
 
             <div className="w-32">
               <Select
-                value={filters.transaction_type || "all"}
+                value={filters.transaction_type || 'all'}
                 onValueChange={(value) =>
                   setFilters({
                     ...filters,
-                    transaction_type: value === "all" ? undefined : value,
+                    transaction_type: value === 'all' ? undefined : value,
                   })
                 }
               >
@@ -540,12 +522,7 @@ export default function TransactionsPage() {
               </Select>
             </div>
 
-            <Button
-              variant="outline"
-              onClick={() =>
-                setFilters({ limit: 50 })
-              }
-            >
+            <Button variant="outline" onClick={() => setFilters({ limit: 50 })}>
               Clear Filters
             </Button>
           </div>
@@ -576,11 +553,9 @@ export default function TransactionsPage() {
               <TableBody>
                 {transactions.map((tx) => (
                   <TableRow key={tx.id}>
-                    <TableCell>
-                      {new Date(tx.transaction_date).toLocaleDateString()}
-                    </TableCell>
+                    <TableCell>{new Date(tx.transaction_date).toLocaleDateString()}</TableCell>
                     <TableCell className="font-medium">
-                      {tx.merchant || tx.description || "-"}
+                      {tx.merchant || tx.description || '-'}
                     </TableCell>
                     <TableCell>
                       {tx.category ? (
@@ -596,35 +571,34 @@ export default function TransactionsPage() {
                         <span className="text-sm">**** {tx.card_last_four}</span>
                       ) : (
                         <span className="text-sm text-muted-foreground">
-                          {tx.bank_name || "Bank"} <Badge variant="outline" className="ml-1 text-xs">Transfer</Badge>
+                          {tx.bank_name || 'Bank'}{' '}
+                          <Badge variant="outline" className="ml-1 text-xs">
+                            Transfer
+                          </Badge>
                         </span>
                       )}
                     </TableCell>
                     <TableCell>
                       <Badge
-                        variant={tx.transaction_type === "credit" ? "default" : "secondary"}
-                        className={tx.transaction_type === "credit" ? "bg-success hover:bg-success/80" : ""}
+                        variant={tx.transaction_type === 'credit' ? 'default' : 'secondary'}
+                        className={
+                          tx.transaction_type === 'credit' ? 'bg-success hover:bg-success/80' : ''
+                        }
                       >
                         {tx.transaction_type}
                       </Badge>
                     </TableCell>
                     <TableCell
                       className={`text-right font-semibold ${
-                        tx.transaction_type === "credit"
-                          ? "text-success"
-                          : "text-destructive"
+                        tx.transaction_type === 'credit' ? 'text-success' : 'text-destructive'
                       }`}
                     >
-                      {tx.transaction_type === "credit" ? "+" : "-"}
+                      {tx.transaction_type === 'credit' ? '+' : '-'}
                       {formatCurrency(tx.amount, tx.currency)}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEdit(tx)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(tx)}>
                           Edit
                         </Button>
                         <Button
@@ -647,14 +621,12 @@ export default function TransactionsPage() {
               title="No transactions found"
               description={
                 cards.length === 0 && accounts.length === 0
-                  ? "Create a bank account or card first, then add transactions."
-                  : "Add your first transaction to start tracking your spending."
+                  ? 'Create a bank account or card first, then add transactions.'
+                  : 'Add your first transaction to start tracking your spending.'
               }
               action={
                 cards.length > 0 || accounts.length > 0 ? (
-                  <Button onClick={() => setIsCreateOpen(true)}>
-                    Add Transaction
-                  </Button>
+                  <Button onClick={() => setIsCreateOpen(true)}>Add Transaction</Button>
                 ) : undefined
               }
             />

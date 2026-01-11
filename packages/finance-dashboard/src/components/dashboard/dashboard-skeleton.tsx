@@ -1,5 +1,5 @@
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function StatsCardSkeleton() {
   return (
@@ -16,7 +16,7 @@ export function StatsCardSkeleton() {
   );
 }
 
-const CHART_BAR_HEIGHTS = ["45%", "70%", "55%", "85%", "40%", "65%"];
+const CHART_BAR_HEIGHTS = ['45%', '70%', '55%', '85%', '40%', '65%'];
 
 export function ChartSkeleton() {
   return (
@@ -27,11 +27,7 @@ export function ChartSkeleton() {
       <CardContent>
         <div className="flex h-[300px] items-end justify-around gap-2 pt-4">
           {CHART_BAR_HEIGHTS.map((height, i) => (
-            <Skeleton
-              key={i}
-              className="w-12 rounded-t"
-              style={{ height }}
-            />
+            <Skeleton key={i} className="w-12 rounded-t" style={{ height }} />
           ))}
         </div>
       </CardContent>

@@ -1,25 +1,25 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { CreditCard, AlertTriangle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useState } from 'react';
+import { CreditCard, AlertTriangle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -27,18 +27,12 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { EmptyState } from "@/components/ui/empty-state";
-import {
-  getAccounts,
-  getCards,
-  createCard,
-  updateCard,
-  deleteCard,
-} from "@/lib/api";
-import type { BankAccount, Card as CardType, CardCreate } from "@/lib/types";
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { getAccounts, getCards, createCard, updateCard, deleteCard } from '@/lib/api';
+import type { BankAccount, Card as CardType, CardCreate } from '@/lib/types';
 
 function CardsTableSkeleton() {
   return (
@@ -66,25 +60,22 @@ export default function CardsPage() {
 
   // Form state
   const [formData, setFormData] = useState<CardCreate>({
-    bank_account_id: "",
-    card_type: "debit",
-    last_four: "",
-    card_alias: "",
+    bank_account_id: '',
+    card_type: 'debit',
+    last_four: '',
+    card_alias: '',
     is_active: true,
   });
 
   async function fetchData() {
     try {
       setLoading(true);
-      const [cardsData, accountsData] = await Promise.all([
-        getCards(),
-        getAccounts(),
-      ]);
+      const [cardsData, accountsData] = await Promise.all([getCards(), getAccounts()]);
       setCards(cardsData);
       setAccounts(accountsData);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load data");
+      setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
       setLoading(false);
     }
@@ -96,10 +87,10 @@ export default function CardsPage() {
 
   function resetForm() {
     setFormData({
-      bank_account_id: accounts[0]?.id || "",
-      card_type: "debit",
-      last_four: "",
-      card_alias: "",
+      bank_account_id: accounts[0]?.id || '',
+      card_type: 'debit',
+      last_four: '',
+      card_alias: '',
       is_active: true,
     });
   }
@@ -123,18 +114,18 @@ export default function CardsPage() {
       setEditingCard(null);
       resetForm();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save card");
+      setError(err instanceof Error ? err.message : 'Failed to save card');
     }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Are you sure you want to delete this card?")) return;
+    if (!confirm('Are you sure you want to delete this card?')) return;
 
     try {
       await deleteCard(id);
       await fetchData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete card");
+      setError(err instanceof Error ? err.message : 'Failed to delete card');
     }
   }
 
@@ -143,7 +134,7 @@ export default function CardsPage() {
       await updateCard(card.id, { is_active: !card.is_active });
       await fetchData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update card");
+      setError(err instanceof Error ? err.message : 'Failed to update card');
     }
   }
 
@@ -152,7 +143,7 @@ export default function CardsPage() {
       bank_account_id: card.bank_account_id,
       card_type: card.card_type,
       last_four: card.last_four,
-      card_alias: card.card_alias || "",
+      card_alias: card.card_alias || '',
       is_active: card.is_active,
     });
     setEditingCard(card);
@@ -164,9 +155,7 @@ export default function CardsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Cards</h1>
-          <p className="text-muted-foreground">
-            Manage your debit and credit cards
-          </p>
+          <p className="text-muted-foreground">Manage your debit and credit cards</p>
         </div>
         <Dialog
           open={isCreateOpen}
@@ -183,9 +172,7 @@ export default function CardsPage() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>
-                {editingCard ? "Edit Card" : "Add Card"}
-              </DialogTitle>
+              <DialogTitle>{editingCard ? 'Edit Card' : 'Add Card'}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               {!editingCard && (
@@ -193,9 +180,7 @@ export default function CardsPage() {
                   <Label htmlFor="bank_account">Bank Account</Label>
                   <Select
                     value={formData.bank_account_id}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, bank_account_id: value })
-                    }
+                    onValueChange={(value) => setFormData({ ...formData, bank_account_id: value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select account" />
@@ -217,7 +202,7 @@ export default function CardsPage() {
                   <Label htmlFor="card_type">Card Type</Label>
                   <Select
                     value={formData.card_type}
-                    onValueChange={(value: "debit" | "credit") =>
+                    onValueChange={(value: 'debit' | 'credit') =>
                       setFormData({ ...formData, card_type: value })
                     }
                   >
@@ -236,9 +221,7 @@ export default function CardsPage() {
                   <Input
                     id="last_four"
                     value={formData.last_four}
-                    onChange={(e) =>
-                      setFormData({ ...formData, last_four: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, last_four: e.target.value })}
                     placeholder="1234"
                     maxLength={4}
                     required
@@ -251,10 +234,8 @@ export default function CardsPage() {
                 <Label htmlFor="card_alias">Alias (optional)</Label>
                 <Input
                   id="card_alias"
-                  value={formData.card_alias || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, card_alias: e.target.value })
-                  }
+                  value={formData.card_alias || ''}
+                  onChange={(e) => setFormData({ ...formData, card_alias: e.target.value })}
                   placeholder="e.g., Blue Card, Travel Card"
                 />
               </div>
@@ -264,9 +245,7 @@ export default function CardsPage() {
                   type="checkbox"
                   id="is_active"
                   checked={formData.is_active}
-                  onChange={(e) =>
-                    setFormData({ ...formData, is_active: e.target.checked })
-                  }
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
                   className="h-4 w-4"
                 />
                 <Label htmlFor="is_active" className="cursor-pointer">
@@ -286,18 +265,14 @@ export default function CardsPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">
-                  {editingCard ? "Save Changes" : "Create Card"}
-                </Button>
+                <Button type="submit">{editingCard ? 'Save Changes' : 'Create Card'}</Button>
               </div>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      {error && (
-        <div className="rounded-lg bg-destructive/10 p-4 text-destructive">{error}</div>
-      )}
+      {error && <div className="rounded-lg bg-destructive/10 p-4 text-destructive">{error}</div>}
 
       {accounts.length === 0 && !loading && (
         <div className="flex items-center gap-3 rounded-lg bg-warning/10 p-4 text-warning">
@@ -329,40 +304,28 @@ export default function CardsPage() {
               <TableBody>
                 {cards.map((card) => (
                   <TableRow key={card.id}>
-                    <TableCell className="font-medium">
-                      **** {card.last_four}
-                    </TableCell>
+                    <TableCell className="font-medium">**** {card.last_four}</TableCell>
                     <TableCell>
-                      <Badge
-                        variant={card.card_type === "credit" ? "default" : "outline"}
-                      >
+                      <Badge variant={card.card_type === 'credit' ? 'default' : 'outline'}>
                         {card.card_type}
                       </Badge>
                     </TableCell>
-                    <TableCell>{card.bank_name || "Unknown"}</TableCell>
-                    <TableCell>{card.card_alias || "-"}</TableCell>
+                    <TableCell>{card.bank_name || 'Unknown'}</TableCell>
+                    <TableCell>{card.card_alias || '-'}</TableCell>
                     <TableCell>
                       <Badge
-                        variant={card.is_active ? "default" : "secondary"}
-                        className={card.is_active ? "bg-success hover:bg-success/80" : ""}
+                        variant={card.is_active ? 'default' : 'secondary'}
+                        className={card.is_active ? 'bg-success hover:bg-success/80' : ''}
                       >
-                        {card.is_active ? "Active" : "Inactive"}
+                        {card.is_active ? 'Active' : 'Inactive'}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleToggleActive(card)}
-                        >
-                          {card.is_active ? "Deactivate" : "Activate"}
+                        <Button variant="ghost" size="sm" onClick={() => handleToggleActive(card)}>
+                          {card.is_active ? 'Deactivate' : 'Activate'}
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEdit(card)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(card)}>
                           Edit
                         </Button>
                         <Button
@@ -384,11 +347,7 @@ export default function CardsPage() {
               icon={CreditCard}
               title="No cards yet"
               description="Add your first card to start tracking transactions."
-              action={
-                <Button onClick={() => setIsCreateOpen(true)}>
-                  Add Card
-                </Button>
-              }
+              action={<Button onClick={() => setIsCreateOpen(true)}>Add Card</Button>}
             />
           ) : (
             <EmptyState

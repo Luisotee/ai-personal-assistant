@@ -1,6 +1,6 @@
-import { type LucideIcon, TrendingUp, TrendingDown } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { type LucideIcon, TrendingUp, TrendingDown } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 interface StatsCardProps {
   title: string;
@@ -11,7 +11,7 @@ interface StatsCardProps {
     value: number;
     label: string;
   };
-  variant?: "default" | "success" | "destructive";
+  variant?: 'default' | 'success' | 'destructive';
 }
 
 export function StatsCard({
@@ -20,31 +20,29 @@ export function StatsCard({
   description,
   icon: Icon,
   trend,
-  variant = "default",
+  variant = 'default',
 }: StatsCardProps) {
   const isPositiveTrend = trend && trend.value > 0;
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          {title}
-        </CardTitle>
+        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
         <Icon
           className={cn(
-            "size-4",
-            variant === "success" && "text-success",
-            variant === "destructive" && "text-destructive",
-            variant === "default" && "text-muted-foreground"
+            'size-4',
+            variant === 'success' && 'text-success',
+            variant === 'destructive' && 'text-destructive',
+            variant === 'default' && 'text-muted-foreground'
           )}
         />
       </CardHeader>
       <CardContent>
         <div
           className={cn(
-            "text-2xl font-bold",
-            variant === "success" && "text-success",
-            variant === "destructive" && "text-destructive"
+            'text-2xl font-bold',
+            variant === 'success' && 'text-success',
+            variant === 'destructive' && 'text-destructive'
           )}
         >
           {value}
@@ -53,8 +51,8 @@ export function StatsCard({
           {trend && (
             <span
               className={cn(
-                "flex items-center gap-0.5 font-medium",
-                isPositiveTrend ? "text-success" : "text-destructive"
+                'flex items-center gap-0.5 font-medium',
+                isPositiveTrend ? 'text-success' : 'text-destructive'
               )}
             >
               {isPositiveTrend ? (

@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Building2,
@@ -10,7 +10,7 @@ import {
   DollarSign,
   Settings,
   ChevronUp,
-} from "lucide-react";
+} from 'lucide-react';
 
 import {
   Sidebar,
@@ -24,19 +24,19 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
-} from "@/components/ui/sidebar";
+} from '@/components/ui/sidebar';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
 
 const navigation = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Accounts", href: "/accounts", icon: Building2 },
-  { name: "Cards", href: "/cards", icon: CreditCard },
-  { name: "Transactions", href: "/transactions", icon: ArrowLeftRight },
+  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Accounts', href: '/accounts', icon: Building2 },
+  { name: 'Cards', href: '/cards', icon: CreditCard },
+  { name: 'Transactions', href: '/transactions', icon: ArrowLeftRight },
 ];
 
 export function AppSidebar() {
@@ -71,11 +71,7 @@ export function AppSidebar() {
                 const isActive = pathname === item.href;
                 return (
                   <SidebarMenuItem key={item.name}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      tooltip={item.name}
-                    >
+                    <SidebarMenuButton asChild isActive={isActive} tooltip={item.name}>
                       <Link href={item.href}>
                         <item.icon />
                         <span>{item.name}</span>
@@ -100,10 +96,7 @@ export function AppSidebar() {
                   <ChevronUp className="ml-auto" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent
-                side="top"
-                className="w-[--radix-popper-anchor-width]"
-              >
+              <DropdownMenuContent side="top" className="w-[--radix-popper-anchor-width]">
                 <DropdownMenuItem disabled>
                   <span className="text-muted-foreground">v1.0.0</span>
                 </DropdownMenuItem>

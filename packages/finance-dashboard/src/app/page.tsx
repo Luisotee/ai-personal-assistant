@@ -1,42 +1,41 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import {
-  Wallet,
-  TrendingDown,
-  Receipt,
-  CreditCard,
-  ArrowRight,
-  BarChart3,
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { Wallet, TrendingDown, Receipt, CreditCard, ArrowRight, BarChart3 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-} from "@/components/ui/chart";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Pie, PieChart, Cell, Legend } from "recharts";
-import { StatsCard } from "@/components/dashboard/stats-card";
-import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
-import { EmptyState } from "@/components/ui/empty-state";
+} from '@/components/ui/chart';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Pie, PieChart, Cell, Legend } from 'recharts';
+import { StatsCard } from '@/components/dashboard/stats-card';
+import { DashboardSkeleton } from '@/components/dashboard/dashboard-skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
   getAccounts,
   getCards,
   getTransactions,
   getSpendingByCategory,
   getMonthlySpending,
-} from "@/lib/api";
-import type { BankAccount, Card as CardType, Transaction, SpendingSummary, MonthlySummary } from "@/lib/types";
+} from '@/lib/api';
+import type {
+  BankAccount,
+  Card as CardType,
+  Transaction,
+  SpendingSummary,
+  MonthlySummary,
+} from '@/lib/types';
 
 const CHART_COLORS = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)",
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
 ];
 
 export default function DashboardPage() {
@@ -66,7 +65,7 @@ export default function DashboardPage() {
         setSpending(spendingData);
         setMonthly(monthlyData.reverse());
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load data");
+        setError(err instanceof Error ? err.message : 'Failed to load data');
       } finally {
         setLoading(false);
       }
@@ -86,11 +85,7 @@ export default function DashboardPage() {
           icon={BarChart3}
           title="Failed to load dashboard"
           description={error}
-          action={
-            <Button onClick={() => window.location.reload()}>
-              Try again
-            </Button>
-          }
+          action={<Button onClick={() => window.location.reload()}>Try again</Button>}
         />
       </div>
     );
@@ -98,15 +93,16 @@ export default function DashboardPage() {
 
   // Calculate totals
   const totalBalance = accounts.reduce((sum, account) => {
-    const eurBalance = account.balances.find((b) => b.currency === "EUR");
+    const eurBalance = account.balances.find((b) => b.currency === 'EUR');
     return sum + (eurBalance?.balance || 0);
   }, 0);
 
   const currentMonthSpending = monthly.length > 0 ? monthly[monthly.length - 1]?.total || 0 : 0;
   const previousMonthSpending = monthly.length > 1 ? monthly[monthly.length - 2]?.total || 0 : 0;
-  const spendingTrend = previousMonthSpending > 0
-    ? ((currentMonthSpending - previousMonthSpending) / previousMonthSpending) * 100
-    : 0;
+  const spendingTrend =
+    previousMonthSpending > 0
+      ? ((currentMonthSpending - previousMonthSpending) / previousMonthSpending) * 100
+      : 0;
 
   const activeCards = cards.filter((c) => c.is_active).length;
 
@@ -121,14 +117,14 @@ export default function DashboardPage() {
 
   const monthlyChartConfig: ChartConfig = {
     total: {
-      label: "Spending",
-      color: "var(--chart-1)",
+      label: 'Spending',
+      color: 'var(--chart-1)',
     },
   };
 
-  const formatCurrency = (value: number, currency = "EUR") =>
-    new Intl.NumberFormat("de-DE", {
-      style: "currency",
+  const formatCurrency = (value: number, currency = 'EUR') =>
+    new Intl.NumberFormat('de-DE', {
+      style: 'currency',
       currency,
     }).format(value);
 
@@ -137,9 +133,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Overview of your financial accounts and spending
-        </p>
+        <p className="text-muted-foreground">Overview of your financial accounts and spending</p>
       </div>
 
       {/* Stats Cards */}
@@ -147,7 +141,7 @@ export default function DashboardPage() {
         <StatsCard
           title="Total Balance"
           value={formatCurrency(totalBalance)}
-          description={`Across ${accounts.length} account${accounts.length !== 1 ? "s" : ""}`}
+          description={`Across ${accounts.length} account${accounts.length !== 1 ? 's' : ''}`}
           icon={Wallet}
         />
         <StatsCard
@@ -159,7 +153,7 @@ export default function DashboardPage() {
             previousMonthSpending > 0
               ? {
                   value: Math.round(spendingTrend),
-                  label: "vs last month",
+                  label: 'vs last month',
                 }
               : undefined
           }
@@ -241,10 +235,10 @@ export default function DashboardPage() {
                     tickLine={false}
                     axisLine={false}
                     tickFormatter={(value) => {
-                      const [year, month] = value.split("-");
+                      const [year, month] = value.split('-');
                       return new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString(
-                        "en-US",
-                        { month: "short" }
+                        'en-US',
+                        { month: 'short' }
                       );
                     }}
                     className="text-muted-foreground"
@@ -259,11 +253,7 @@ export default function DashboardPage() {
                     content={<ChartTooltipContent />}
                     formatter={(value) => formatCurrency(value as number)}
                   />
-                  <Bar
-                    dataKey="total"
-                    fill="var(--chart-1)"
-                    radius={[4, 4, 0, 0]}
-                  />
+                  <Bar dataKey="total" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ChartContainer>
             ) : (
@@ -299,21 +289,21 @@ export default function DashboardPage() {
                 >
                   <div className="space-y-1">
                     <p className="font-medium leading-none">
-                      {tx.merchant || tx.description || "Unknown"}
+                      {tx.merchant || tx.description || 'Unknown'}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {new Date(tx.transaction_date).toLocaleDateString()} &middot;{" "}
-                      {tx.category || "Uncategorized"}
+                      {new Date(tx.transaction_date).toLocaleDateString()} &middot;{' '}
+                      {tx.category || 'Uncategorized'}
                     </p>
                   </div>
                   <div
                     className={
-                      tx.transaction_type === "credit"
-                        ? "font-semibold text-success"
-                        : "font-semibold text-destructive"
+                      tx.transaction_type === 'credit'
+                        ? 'font-semibold text-success'
+                        : 'font-semibold text-destructive'
                     }
                   >
-                    {tx.transaction_type === "credit" ? "+" : "-"}
+                    {tx.transaction_type === 'credit' ? '+' : '-'}
                     {formatCurrency(Math.abs(tx.amount), tx.currency)}
                   </div>
                 </div>

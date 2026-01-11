@@ -1,25 +1,25 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { Building2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useState } from 'react';
+import { Building2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -27,19 +27,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { EmptyState } from "@/components/ui/empty-state";
-import {
-  getAccounts,
-  createAccount,
-  updateAccount,
-  deleteAccount,
-  updateBalance,
-} from "@/lib/api";
-import type { BankAccount, BankAccountCreate } from "@/lib/types";
-import { COUNTRIES, CURRENCIES } from "@/lib/types";
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { getAccounts, createAccount, updateAccount, deleteAccount, updateBalance } from '@/lib/api';
+import type { BankAccount, BankAccountCreate } from '@/lib/types';
+import { COUNTRIES, CURRENCIES } from '@/lib/types';
 
 function AccountsTableSkeleton() {
   return (
@@ -67,16 +61,16 @@ export default function AccountsPage() {
 
   // Form state
   const [formData, setFormData] = useState<BankAccountCreate>({
-    bank_name: "",
-    country: "DE",
-    account_alias: "",
-    account_type: "checking",
-    last_four: "",
+    bank_name: '',
+    country: 'DE',
+    account_alias: '',
+    account_type: 'checking',
+    last_four: '',
   });
 
   // Balance form state
-  const [balanceCurrency, setBalanceCurrency] = useState("EUR");
-  const [balanceAmount, setBalanceAmount] = useState("");
+  const [balanceCurrency, setBalanceCurrency] = useState('EUR');
+  const [balanceAmount, setBalanceAmount] = useState('');
 
   async function fetchAccounts() {
     try {
@@ -85,7 +79,7 @@ export default function AccountsPage() {
       setAccounts(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load accounts");
+      setError(err instanceof Error ? err.message : 'Failed to load accounts');
     } finally {
       setLoading(false);
     }
@@ -97,11 +91,11 @@ export default function AccountsPage() {
 
   function resetForm() {
     setFormData({
-      bank_name: "",
-      country: "DE",
-      account_alias: "",
-      account_type: "checking",
-      last_four: "",
+      bank_name: '',
+      country: 'DE',
+      account_alias: '',
+      account_type: 'checking',
+      last_four: '',
     });
   }
 
@@ -129,18 +123,18 @@ export default function AccountsPage() {
       setEditingAccount(null);
       resetForm();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save account");
+      setError(err instanceof Error ? err.message : 'Failed to save account');
     }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Are you sure you want to delete this account?")) return;
+    if (!confirm('Are you sure you want to delete this account?')) return;
 
     try {
       await deleteAccount(id);
       await fetchAccounts();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete account");
+      setError(err instanceof Error ? err.message : 'Failed to delete account');
     }
   }
 
@@ -152,9 +146,9 @@ export default function AccountsPage() {
       await updateBalance(balanceAccount.id, balanceCurrency, parseFloat(balanceAmount));
       await fetchAccounts();
       setBalanceAccount(null);
-      setBalanceAmount("");
+      setBalanceAmount('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update balance");
+      setError(err instanceof Error ? err.message : 'Failed to update balance');
     }
   }
 
@@ -162,9 +156,9 @@ export default function AccountsPage() {
     setFormData({
       bank_name: account.bank_name,
       country: account.country,
-      account_alias: account.account_alias || "",
+      account_alias: account.account_alias || '',
       account_type: account.account_type,
-      last_four: account.last_four || "",
+      last_four: account.last_four || '',
     });
     setEditingAccount(account);
     setIsCreateOpen(true);
@@ -175,9 +169,7 @@ export default function AccountsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Bank Accounts</h1>
-          <p className="text-muted-foreground">
-            Manage your bank accounts and balances
-          </p>
+          <p className="text-muted-foreground">Manage your bank accounts and balances</p>
         </div>
         <Dialog
           open={isCreateOpen}
@@ -194,9 +186,7 @@ export default function AccountsPage() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>
-                {editingAccount ? "Edit Account" : "Add Bank Account"}
-              </DialogTitle>
+              <DialogTitle>{editingAccount ? 'Edit Account' : 'Add Bank Account'}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
@@ -204,9 +194,7 @@ export default function AccountsPage() {
                 <Input
                   id="bank_name"
                   value={formData.bank_name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, bank_name: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
                   placeholder="e.g., Wise, N26, Nubank"
                   required
                 />
@@ -217,9 +205,7 @@ export default function AccountsPage() {
                   <Label htmlFor="country">Country</Label>
                   <Select
                     value={formData.country}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, country: value })
-                    }
+                    onValueChange={(value) => setFormData({ ...formData, country: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -238,7 +224,7 @@ export default function AccountsPage() {
                   <Label htmlFor="account_type">Account Type</Label>
                   <Select
                     value={formData.account_type}
-                    onValueChange={(value: "checking" | "savings" | "credit") =>
+                    onValueChange={(value: 'checking' | 'savings' | 'credit') =>
                       setFormData({ ...formData, account_type: value })
                     }
                   >
@@ -259,10 +245,8 @@ export default function AccountsPage() {
                   <Label htmlFor="account_alias">Alias (optional)</Label>
                   <Input
                     id="account_alias"
-                    value={formData.account_alias || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, account_alias: e.target.value })
-                    }
+                    value={formData.account_alias || ''}
+                    onChange={(e) => setFormData({ ...formData, account_alias: e.target.value })}
                     placeholder="e.g., Main Account"
                   />
                 </div>
@@ -271,10 +255,8 @@ export default function AccountsPage() {
                   <Label htmlFor="last_four">Last 4 Digits (optional)</Label>
                   <Input
                     id="last_four"
-                    value={formData.last_four || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, last_four: e.target.value })
-                    }
+                    value={formData.last_four || ''}
+                    onChange={(e) => setFormData({ ...formData, last_four: e.target.value })}
                     placeholder="e.g., 1234"
                     maxLength={4}
                   />
@@ -293,18 +275,14 @@ export default function AccountsPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">
-                  {editingAccount ? "Save Changes" : "Create Account"}
-                </Button>
+                <Button type="submit">{editingAccount ? 'Save Changes' : 'Create Account'}</Button>
               </div>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      {error && (
-        <div className="rounded-lg bg-destructive/10 p-4 text-destructive">{error}</div>
-      )}
+      {error && <div className="rounded-lg bg-destructive/10 p-4 text-destructive">{error}</div>}
 
       {/* Balance Update Dialog */}
       <Dialog
@@ -312,7 +290,7 @@ export default function AccountsPage() {
         onOpenChange={(open) => {
           if (!open) {
             setBalanceAccount(null);
-            setBalanceAmount("");
+            setBalanceAmount('');
           }
         }}
       >
@@ -324,17 +302,14 @@ export default function AccountsPage() {
             <div className="space-y-2">
               <Label>Account</Label>
               <p className="text-sm text-muted-foreground">
-                {balanceAccount?.bank_name} ({balanceAccount?.account_alias || "No alias"})
+                {balanceAccount?.bank_name} ({balanceAccount?.account_alias || 'No alias'})
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="balance_currency">Currency</Label>
-                <Select
-                  value={balanceCurrency}
-                  onValueChange={setBalanceCurrency}
-                >
+                <Select value={balanceCurrency} onValueChange={setBalanceCurrency}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -368,7 +343,7 @@ export default function AccountsPage() {
                 variant="outline"
                 onClick={() => {
                   setBalanceAccount(null);
-                  setBalanceAmount("");
+                  setBalanceAmount('');
                 }}
               >
                 Cancel
@@ -405,23 +380,21 @@ export default function AccountsPage() {
                     <TableCell className="font-medium">
                       {account.bank_name}
                       {account.last_four && (
-                        <span className="ml-2 text-muted-foreground">
-                          ****{account.last_four}
-                        </span>
+                        <span className="ml-2 text-muted-foreground">****{account.last_four}</span>
                       )}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{account.account_type}</Badge>
                     </TableCell>
-                    <TableCell>{account.account_alias || "-"}</TableCell>
+                    <TableCell>{account.account_alias || '-'}</TableCell>
                     <TableCell>{account.country}</TableCell>
                     <TableCell>
                       {account.balances.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {account.balances.map((b) => (
                             <Badge key={b.currency} variant="secondary">
-                              {new Intl.NumberFormat("de-DE", {
-                                style: "currency",
+                              {new Intl.NumberFormat('de-DE', {
+                                style: 'currency',
                                 currency: b.currency,
                               }).format(b.balance)}
                             </Badge>
@@ -440,11 +413,7 @@ export default function AccountsPage() {
                         >
                           Balance
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEdit(account)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(account)}>
                           Edit
                         </Button>
                         <Button
@@ -466,11 +435,7 @@ export default function AccountsPage() {
               icon={Building2}
               title="No accounts yet"
               description="Add your first bank account to get started tracking your finances."
-              action={
-                <Button onClick={() => setIsCreateOpen(true)}>
-                  Add Account
-                </Button>
-              }
+              action={<Button onClick={() => setIsCreateOpen(true)}>Add Account</Button>}
             />
           )}
         </CardContent>

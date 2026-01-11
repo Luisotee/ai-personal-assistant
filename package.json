@@ -10,10 +10,10 @@
     "dev:queue": "cd packages/ai-api && uv run python -m ai_api.scripts.run_stream_worker",
     "dev:dashboard": "pnpm --filter finance-dashboard dev",
     "install:all": "pnpm install && cd packages/ai-api && uv sync",
-    "lint": "eslint packages/whatsapp-client/src && cd packages/ai-api && uv run ruff check .",
+    "lint": "eslint packages/whatsapp-client/src && pnpm --filter finance-dashboard lint && cd packages/ai-api && uv run ruff check .",
     "lint:fix": "eslint packages/whatsapp-client/src --fix && cd packages/ai-api && uv run ruff check . --fix",
-    "format": "prettier --write packages/whatsapp-client/src && cd packages/ai-api && uv run ruff format .",
-    "format:check": "prettier --check packages/whatsapp-client/src && cd packages/ai-api && uv run ruff format . --check",
+    "format": "prettier --write 'packages/whatsapp-client/src/**/*.{ts,tsx}' 'packages/finance-dashboard/src/**/*.{ts,tsx}' && cd packages/ai-api && uv run ruff format .",
+    "format:check": "prettier --check 'packages/whatsapp-client/src/**/*.{ts,tsx}' 'packages/finance-dashboard/src/**/*.{ts,tsx}' && cd packages/ai-api && uv run ruff format . --check",
     "prepare": "husky"
   },
   "keywords": [],
