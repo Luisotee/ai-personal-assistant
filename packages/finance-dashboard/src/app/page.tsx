@@ -311,7 +311,9 @@ export default function DashboardPage() {
                   <YAxis
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                    tickFormatter={(value) =>
+                      value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value.toFixed(0)
+                    }
                     className="text-muted-foreground"
                   />
                   <ChartTooltip
