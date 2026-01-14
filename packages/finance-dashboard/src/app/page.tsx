@@ -14,7 +14,10 @@ import {
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Pie, PieChart, Cell, Legend } from 'recharts';
 import { StatsCard } from '@/components/dashboard/stats-card';
 import { DashboardSkeleton } from '@/components/dashboard/dashboard-skeleton';
+import { BalanceDetailsSheet } from '@/components/dashboard/balance-details-sheet';
 import { EmptyState } from '@/components/ui/empty-state';
+import { useSettings } from '@/contexts/settings-context';
+import { formatCurrency, formatConvertedCurrency } from '@/lib/currency';
 import {
   getAccounts,
   getCards,
@@ -46,6 +49,8 @@ export default function DashboardPage() {
   const [monthly, setMonthly] = useState<MonthlySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const { primaryCurrency, convertToPrimary, exchangeRates } = useSettings();
 
   useEffect(() => {
     async function fetchData() {
@@ -107,13 +112,6 @@ export default function DashboardPage() {
     .map(([currency, total]) => ({ currency, total }))
     .sort((a, b) => b.total - a.total);
 
-  const currentMonthSpending = monthly.length > 0 ? monthly[monthly.length - 1]?.total || 0 : 0;
-  const previousMonthSpending = monthly.length > 1 ? monthly[monthly.length - 2]?.total || 0 : 0;
-  const spendingTrend =
-    previousMonthSpending > 0
-      ? ((currentMonthSpending - previousMonthSpending) / previousMonthSpending) * 100
-      : 0;
-
   const activeCards = cards.filter((c) => c.is_active).length;
 
   // Chart configs
@@ -132,11 +130,52 @@ export default function DashboardPage() {
     },
   };
 
-  const formatCurrency = (value: number, currency = 'EUR') =>
-    new Intl.NumberFormat('de-DE', {
-      style: 'currency',
-      currency,
-    }).format(value);
+  // Calculate total balance in primary currency
+  const totalInPrimary = exchangeRates
+    ? currencyTotals.reduce((sum, ct) => sum + convertToPrimary(ct.total, ct.currency), 0)
+    : null;
+
+  // Convert and aggregate spending data by category (API returns per-currency rows)
+  const convertedSpending = Object.values(
+    spending.reduce(
+      (acc, item) => {
+        const key = item.category;
+        if (!acc[key]) {
+          acc[key] = { category: item.category, total: 0, count: 0, currency: primaryCurrency };
+        }
+        acc[key].total += convertToPrimary(Number(item.total), item.currency);
+        acc[key].count += item.count;
+        return acc;
+      },
+      {} as Record<string, SpendingSummary>
+    )
+  );
+
+  // Convert and aggregate monthly data by month (API returns per-currency rows)
+  const convertedMonthly = Object.values(
+    monthly.reduce(
+      (acc, item) => {
+        const key = item.month;
+        if (!acc[key]) {
+          acc[key] = { month: item.month, total: 0, count: 0, currency: primaryCurrency };
+        }
+        acc[key].total += convertToPrimary(Number(item.total), item.currency);
+        acc[key].count += item.count;
+        return acc;
+      },
+      {} as Record<string, MonthlySummary>
+    )
+  ).sort((a, b) => a.month.localeCompare(b.month));
+
+  // Calculate converted monthly spending for stats
+  const currentMonthConverted =
+    convertedMonthly.length > 0 ? convertedMonthly[convertedMonthly.length - 1]?.total || 0 : 0;
+  const previousMonthConverted =
+    convertedMonthly.length > 1 ? convertedMonthly[convertedMonthly.length - 2]?.total || 0 : 0;
+  const convertedSpendingTrend =
+    previousMonthConverted > 0
+      ? ((currentMonthConverted - previousMonthConverted) / previousMonthConverted) * 100
+      : 0;
 
   return (
     <div className="space-y-6">
@@ -148,25 +187,37 @@ export default function DashboardPage() {
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatsCard
-          title="Total Balance"
-          value={
-            currencyTotals.length > 0
-              ? currencyTotals.map((ct) => formatCurrency(ct.total, ct.currency)).join(' / ')
-              : formatCurrency(0)
-          }
-          description={`Across ${accounts.length} account${accounts.length !== 1 ? 's' : ''}`}
-          icon={Wallet}
-        />
+        <BalanceDetailsSheet
+          accounts={accounts}
+          totalInPrimary={totalInPrimary}
+          primaryCurrency={primaryCurrency}
+          convertToPrimary={convertToPrimary}
+        >
+          <StatsCard
+            title="Total Balance"
+            value={
+              currencyTotals.length > 0
+                ? currencyTotals.map((ct) => formatCurrency(ct.total, ct.currency)).join(' / ')
+                : formatCurrency(0)
+            }
+            description={
+              totalInPrimary !== null && currencyTotals.length > 1
+                ? formatConvertedCurrency(totalInPrimary, primaryCurrency)
+                : `Across ${accounts.length} account${accounts.length !== 1 ? 's' : ''}`
+            }
+            icon={Wallet}
+            clickable
+          />
+        </BalanceDetailsSheet>
         <StatsCard
           title="Monthly Spending"
-          value={formatCurrency(currentMonthSpending)}
+          value={formatCurrency(currentMonthConverted, primaryCurrency)}
           icon={TrendingDown}
           variant="destructive"
           trend={
-            previousMonthSpending > 0
+            previousMonthConverted > 0
               ? {
-                  value: Math.round(spendingTrend),
+                  value: Math.round(convertedSpendingTrend),
                   label: 'vs last month',
                 }
               : undefined
@@ -194,11 +245,11 @@ export default function DashboardPage() {
             <CardTitle>Spending by Category</CardTitle>
           </CardHeader>
           <CardContent>
-            {spending.length > 0 ? (
+            {convertedSpending.length > 0 ? (
               <ChartContainer config={spendingChartConfig} className="h-[300px]">
                 <PieChart>
                   <Pie
-                    data={spending}
+                    data={convertedSpending}
                     dataKey="total"
                     nameKey="category"
                     cx="50%"
@@ -209,7 +260,7 @@ export default function DashboardPage() {
                     }
                     labelLine={false}
                   >
-                    {spending.map((_, index) => (
+                    {convertedSpending.map((_, index) => (
                       <Cell
                         key={`cell-${index}`}
                         fill={CHART_COLORS[index % CHART_COLORS.length]}
@@ -218,7 +269,7 @@ export default function DashboardPage() {
                   </Pie>
                   <ChartTooltip
                     content={<ChartTooltipContent />}
-                    formatter={(value) => formatCurrency(value as number)}
+                    formatter={(value) => formatCurrency(value as number, primaryCurrency)}
                   />
                   <Legend />
                 </PieChart>
@@ -240,9 +291,9 @@ export default function DashboardPage() {
             <CardTitle>Monthly Spending Trend</CardTitle>
           </CardHeader>
           <CardContent>
-            {monthly.length > 0 ? (
+            {convertedMonthly.length > 0 ? (
               <ChartContainer config={monthlyChartConfig} className="h-[300px]">
-                <BarChart data={monthly}>
+                <BarChart data={convertedMonthly}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis
                     dataKey="month"
@@ -265,7 +316,7 @@ export default function DashboardPage() {
                   />
                   <ChartTooltip
                     content={<ChartTooltipContent />}
-                    formatter={(value) => formatCurrency(value as number)}
+                    formatter={(value) => formatCurrency(value as number, primaryCurrency)}
                   />
                   <Bar dataKey="total" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
                 </BarChart>

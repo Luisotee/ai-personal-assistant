@@ -13,7 +13,16 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '@/contexts/auth-context';
+import { useSettings } from '@/contexts/settings-context';
+import { CURRENCIES, type Currency } from '@/lib/types';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Sidebar,
   SidebarContent,
@@ -44,6 +53,7 @@ const navigation = [
 export function AppSidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { primaryCurrency, setPrimaryCurrency } = useSettings();
 
   // Get display name and initials for the user
   const displayName =
@@ -95,6 +105,26 @@ export function AppSidebar() {
 
       <SidebarFooter>
         <SidebarMenu>
+          <SidebarMenuItem>
+            <div className="flex items-center gap-2 px-2 py-1.5">
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <Select
+                value={primaryCurrency}
+                onValueChange={(value) => setPrimaryCurrency(value as Currency)}
+              >
+                <SelectTrigger className="h-8 flex-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCIES.map((currency) => (
+                    <SelectItem key={currency} value={currency}>
+                      {currency}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

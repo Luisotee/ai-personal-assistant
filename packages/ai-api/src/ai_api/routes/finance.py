@@ -977,14 +977,17 @@ async def delete_transaction(
 async def get_spending_by_category(
     start_date: datetime | None = Query(None, description="Filter from date"),
     end_date: datetime | None = Query(None, description="Filter to date"),
-    currency: str | None = Query(None, description="Filter by currency (optional, includes all if not set)"),
+    currency: str | None = Query(
+        None, description="Filter by currency (optional, includes all if not set)"
+    ),
     db: Session = Depends(get_db),
     user_id: str = Depends(get_user_id),
 ):
     """Get spending summary by category.
 
     Includes both card transactions and direct bank account transactions.
-    If currency is not specified, includes all currencies.
+    If currency is not specified, returns separate rows per currency for proper
+    aggregation on the frontend.
     """
     from sqlalchemy import or_
 
@@ -993,6 +996,7 @@ async def get_spending_by_category(
             Transaction.category,
             func.sum(Transaction.amount).label("total"),
             func.count(Transaction.id).label("count"),
+            Transaction.currency,
         )
         .outerjoin(Card, Transaction.card_id == Card.id)
         .outerjoin(
@@ -1008,7 +1012,6 @@ async def get_spending_by_category(
         )
     )
 
-    # Only filter by currency if explicitly specified
     if currency:
         query = query.filter(Transaction.currency == currency.upper())
 
@@ -1017,14 +1020,15 @@ async def get_spending_by_category(
     if end_date:
         query = query.filter(Transaction.transaction_date <= end_date)
 
-    results = query.group_by(Transaction.category).all()
+    # Group by category and currency to get separate totals per currency
+    results = query.group_by(Transaction.category, Transaction.currency).all()
 
     return [
         SpendingSummary(
             category=r.category or "Uncategorized",
             total=r.total,
             count=r.count,
-            currency=currency.upper() if currency else "ALL",
+            currency=r.currency,
         )
         for r in results
     ]
@@ -1033,22 +1037,32 @@ async def get_spending_by_category(
 @router.get("/analytics/monthly", response_model=list[MonthlySummary])
 async def get_monthly_spending(
     months: int = Query(6, ge=1, le=24, description="Number of months to include"),
-    currency: str | None = Query(None, description="Filter by currency (optional, includes all if not set)"),
+    currency: str | None = Query(
+        None, description="Filter by currency (optional, includes all if not set)"
+    ),
     db: Session = Depends(get_db),
     user_id: str = Depends(get_user_id),
 ):
     """Get monthly spending trend.
 
     Includes both card transactions and direct bank account transactions.
-    If currency is not specified, includes all currencies.
+    If currency is not specified, returns separate rows per currency for proper
+    aggregation on the frontend.
     """
+    from datetime import timedelta
+
     from sqlalchemy import or_
+
+    # Calculate start date based on months parameter
+    start_of_period = datetime.now().replace(day=1) - timedelta(days=(months - 1) * 31)
+    start_of_period = start_of_period.replace(day=1)
 
     query = (
         db.query(
             func.to_char(Transaction.transaction_date, "YYYY-MM").label("month"),
             func.sum(Transaction.amount).label("total"),
             func.count(Transaction.id).label("count"),
+            Transaction.currency,
         )
         .outerjoin(Card, Transaction.card_id == Card.id)
         .outerjoin(
@@ -1061,18 +1075,18 @@ async def get_monthly_spending(
         .filter(
             BankAccount.user_id == user_id,
             Transaction.transaction_type == "debit",
+            Transaction.transaction_date >= start_of_period,
         )
     )
 
-    # Only filter by currency if explicitly specified
     if currency:
         query = query.filter(Transaction.currency == currency.upper())
 
-    query = (
-        query.group_by(func.to_char(Transaction.transaction_date, "YYYY-MM"))
-        .order_by(func.to_char(Transaction.transaction_date, "YYYY-MM").desc())
-        .limit(months)
-    )
+    # Group by month and currency to get separate totals per currency
+    query = query.group_by(
+        func.to_char(Transaction.transaction_date, "YYYY-MM"),
+        Transaction.currency,
+    ).order_by(func.to_char(Transaction.transaction_date, "YYYY-MM").desc())
 
     results = query.all()
 
@@ -1081,7 +1095,7 @@ async def get_monthly_spending(
             month=r.month,
             total=r.total,
             count=r.count,
-            currency=currency.upper() if currency else "ALL",
+            currency=r.currency,
         )
         for r in results
     ]

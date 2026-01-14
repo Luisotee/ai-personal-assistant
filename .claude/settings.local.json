@@ -19,7 +19,9 @@
       "WebFetch(domain:www.humanlayer.dev)",
       "WebFetch(domain:arize.com)",
       "WebFetch(domain:pyogg.readthedocs.io)",
-      "Bash(pnpm lint:*)"
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm exec tsc:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []
