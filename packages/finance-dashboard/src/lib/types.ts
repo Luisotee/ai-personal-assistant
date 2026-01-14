@@ -1,5 +1,13 @@
 // Finance Dashboard Types - mirrors Python models
 
+export interface User {
+  id: string;
+  whatsapp_jid: string;
+  phone: string | null;
+  name: string | null;
+  created_at: string;
+}
+
 export interface Balance {
   id?: string;
   currency: string;

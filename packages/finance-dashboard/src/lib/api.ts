@@ -10,9 +10,30 @@ import type {
   SpendingSummary,
   Transaction,
   TransactionCreate,
+  User,
 } from './types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const USER_STORAGE_KEY = 'finance_dashboard_user_id';
+
+// =============================================================================
+// User Storage Helpers
+// =============================================================================
+
+export function getStoredUserId(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(USER_STORAGE_KEY);
+}
+
+export function setStoredUserId(userId: string): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(USER_STORAGE_KEY, userId);
+}
+
+export function clearStoredUserId(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(USER_STORAGE_KEY);
+}
 
 class ApiError extends Error {
   constructor(
@@ -25,12 +46,21 @@ class ApiError extends Error {
 }
 
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const userId = getStoredUserId();
+
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+
+  // Add X-User-ID header if user is logged in
+  if (userId) {
+    (headers as Record<string, string>)['X-User-ID'] = userId;
+  }
+
   const response = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -44,6 +74,14 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
   }
 
   return response.json();
+}
+
+// =============================================================================
+// Users
+// =============================================================================
+
+export async function getUsers(): Promise<User[]> {
+  return fetchApi<User[]>('/finance/users');
 }
 
 // =============================================================================

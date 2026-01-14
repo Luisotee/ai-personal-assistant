@@ -3,7 +3,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -167,8 +167,21 @@ class MonthlySummary(BaseModel):
     currency: str
 
 
+class UserResponse(BaseModel):
+    """Schema for user response."""
+
+    id: str
+    whatsapp_jid: str
+    phone: str | None
+    name: str | None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 # =============================================================================
-# Helper: Get user ID from environment (single-user mode)
+# Helper: Get user ID from header or environment
 # =============================================================================
 
 
@@ -179,6 +192,52 @@ def get_default_user_id(db: Session = Depends(get_db)) -> str:
     return str(user.id)
 
 
+def get_user_id(
+    x_user_id: str | None = Header(None, alias="X-User-ID"),
+    db: Session = Depends(get_db),
+) -> str:
+    """Get user ID from header or fall back to default.
+
+    If X-User-ID header is provided and valid, use that user.
+    Otherwise, fall back to the default user (backward compatibility).
+    """
+    if x_user_id:
+        from ..database import User
+
+        user = db.query(User).filter(User.id == x_user_id).first()
+        if user:
+            return str(user.id)
+        logger.warning(f"Invalid X-User-ID header: {x_user_id}, falling back to default")
+
+    # Fall back to default user
+    default_jid = settings.default_whatsapp_jid or "default@dashboard.local"
+    user = get_or_create_user(db, default_jid, "private")
+    return str(user.id)
+
+
+# =============================================================================
+# Users Endpoint
+# =============================================================================
+
+
+@router.get("/users", response_model=list[UserResponse])
+async def list_users(db: Session = Depends(get_db)):
+    """List all users for account selection."""
+    from ..database import User
+
+    users = db.query(User).order_by(User.created_at.desc()).all()
+    return [
+        UserResponse(
+            id=str(user.id),
+            whatsapp_jid=user.whatsapp_jid,
+            phone=user.phone,
+            name=user.name,
+            created_at=user.created_at,
+        )
+        for user in users
+    ]
+
+
 # =============================================================================
 # Bank Account Endpoints
 # =============================================================================
@@ -187,7 +246,7 @@ def get_default_user_id(db: Session = Depends(get_db)) -> str:
 @router.get("/accounts", response_model=list[BankAccountResponse])
 async def list_accounts(
     db: Session = Depends(get_db),
-    user_id: str = Depends(get_default_user_id),
+    user_id: str = Depends(get_user_id),
 ):
     """List all bank accounts for the user."""
     accounts = db.query(BankAccount).filter(BankAccount.user_id == user_id).all()
@@ -218,7 +277,7 @@ async def list_accounts(
 async def create_account(
     data: BankAccountCreate,
     db: Session = Depends(get_db),
-    user_id: str = Depends(get_default_user_id),
+    user_id: str = Depends(get_user_id),
 ):
     """Create a new bank account."""
     account = BankAccount(
@@ -251,7 +310,7 @@ async def create_account(
 async def get_account(
     account_id: str,
     db: Session = Depends(get_db),
-    user_id: str = Depends(get_default_user_id),
+    user_id: str = Depends(get_user_id),
 ):
     """Get a specific bank account."""
     account = (
@@ -285,7 +344,7 @@ async def update_account(
     account_id: str,
     data: BankAccountUpdate,
     db: Session = Depends(get_db),
-    user_id: str = Depends(get_default_user_id),
+    user_id: str = Depends(get_user_id),
 ):
     """Update a bank account."""
     account = (
@@ -329,7 +388,7 @@ async def update_account(
 async def delete_account(
     account_id: str,
     db: Session = Depends(get_db),
-    user_id: str = Depends(get_default_user_id),
+    user_id: str = Depends(get_user_id),
 ):
     """Delete a bank account."""
     account = (
@@ -356,7 +415,7 @@ async def delete_account(
 async def get_balances(
     account_id: str,
     db: Session = Depends(get_db),
-    user_id: str = Depends(get_default_user_id),
+    user_id: str = Depends(get_user_id),
 ):
     """Get all balances for an account."""
     account = (
@@ -384,7 +443,7 @@ async def update_balance(
     account_id: str,
     data: BalanceUpdate,
     db: Session = Depends(get_db),
-    user_id: str = Depends(get_default_user_id),
+    user_id: str = Depends(get_user_id),
 ):
     """Update or create a balance for an account."""
     account = (
@@ -438,7 +497,7 @@ async def update_balance(
 async def list_cards(
     account_id: str | None = Query(None, description="Filter by bank account ID"),
     db: Session = Depends(get_db),
-    user_id: str = Depends(get_default_user_id),
+    user_id: str = Depends(get_user_id),
 ):
     """List all cards for the user."""
     query = db.query(Card).join(BankAccount).filter(BankAccount.user_id == user_id)
@@ -467,7 +526,7 @@ async def list_cards(
 async def create_card(
     data: CardCreate,
     db: Session = Depends(get_db),
-    user_id: str = Depends(get_default_user_id),
+    user_id: str = Depends(get_user_id),
 ):
     """Create a new card."""
     # Verify account belongs to user
@@ -509,7 +568,7 @@ async def create_card(
 async def get_card(
     card_id: str,
     db: Session = Depends(get_db),
-    user_id: str = Depends(get_default_user_id),
+    user_id: str = Depends(get_user_id),
 ):
     """Get a specific card."""
     card = (
@@ -539,7 +598,7 @@ async def update_card(
     card_id: str,
     data: CardUpdate,
     db: Session = Depends(get_db),
-    user_id: str = Depends(get_default_user_id),
+    user_id: str = Depends(get_user_id),
 ):
     """Update a card."""
     card = (
@@ -577,7 +636,7 @@ async def update_card(
 async def delete_card(
     card_id: str,
     db: Session = Depends(get_db),
-    user_id: str = Depends(get_default_user_id),
+    user_id: str = Depends(get_user_id),
 ):
     """Delete a card."""
     card = (
@@ -612,7 +671,7 @@ async def list_transactions(
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
-    user_id: str = Depends(get_default_user_id),
+    user_id: str = Depends(get_user_id),
 ):
     """List transactions with optional filters.
 
@@ -691,7 +750,7 @@ async def list_transactions(
 async def create_transaction(
     data: TransactionCreate,
     db: Session = Depends(get_db),
-    user_id: str = Depends(get_default_user_id),
+    user_id: str = Depends(get_user_id),
 ):
     """Create a new transaction.
 
@@ -769,7 +828,7 @@ async def create_transaction(
 async def get_transaction(
     transaction_id: str,
     db: Session = Depends(get_db),
-    user_id: str = Depends(get_default_user_id),
+    user_id: str = Depends(get_user_id),
 ):
     """Get a specific transaction."""
     from sqlalchemy import or_
@@ -820,7 +879,7 @@ async def update_transaction(
     transaction_id: str,
     data: TransactionUpdate,
     db: Session = Depends(get_db),
-    user_id: str = Depends(get_default_user_id),
+    user_id: str = Depends(get_user_id),
 ):
     """Update a transaction."""
     from sqlalchemy import or_
@@ -881,7 +940,7 @@ async def update_transaction(
 async def delete_transaction(
     transaction_id: str,
     db: Session = Depends(get_db),
-    user_id: str = Depends(get_default_user_id),
+    user_id: str = Depends(get_user_id),
 ):
     """Delete a transaction."""
     from sqlalchemy import or_
@@ -920,7 +979,7 @@ async def get_spending_by_category(
     end_date: datetime | None = Query(None, description="Filter to date"),
     currency: str = Query("EUR", description="Currency for totals"),
     db: Session = Depends(get_db),
-    user_id: str = Depends(get_default_user_id),
+    user_id: str = Depends(get_user_id),
 ):
     """Get spending summary by category.
 
@@ -972,7 +1031,7 @@ async def get_monthly_spending(
     months: int = Query(6, ge=1, le=24, description="Number of months to include"),
     currency: str = Query("EUR", description="Currency for totals"),
     db: Session = Depends(get_db),
-    user_id: str = Depends(get_default_user_id),
+    user_id: str = Depends(get_user_id),
 ):
     """Get monthly spending trend.
 

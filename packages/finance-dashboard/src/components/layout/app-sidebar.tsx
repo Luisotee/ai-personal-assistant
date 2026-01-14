@@ -8,10 +8,12 @@ import {
   CreditCard,
   ArrowLeftRight,
   DollarSign,
-  Settings,
+  LogOut,
   ChevronUp,
 } from 'lucide-react';
 
+import { useAuth } from '@/contexts/auth-context';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Sidebar,
   SidebarContent,
@@ -41,6 +43,12 @@ const navigation = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const { user, logout } = useAuth();
+
+  // Get display name and initials for the user
+  const displayName =
+    user?.name || user?.phone || user?.whatsapp_jid?.replace(/@.*$/, '') || 'User';
+  const initials = displayName.substring(0, 2).toUpperCase();
 
   return (
     <Sidebar collapsible="icon">
@@ -91,14 +99,22 @@ export function AppSidebar() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton>
-                  <Settings />
-                  <span>Settings</span>
+                  <Avatar className="h-6 w-6">
+                    <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                  </Avatar>
+                  <span className="truncate">{displayName}</span>
                   <ChevronUp className="ml-auto" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="top" className="w-[--radix-popper-anchor-width]">
                 <DropdownMenuItem disabled>
-                  <span className="text-muted-foreground">v1.0.0</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {user?.whatsapp_jid}
+                  </span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={logout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Switch Account</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
