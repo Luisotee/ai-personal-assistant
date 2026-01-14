@@ -252,9 +252,11 @@ export async function getSpendingByCategory(
 
 export async function getMonthlySpending(
   months: number = 6,
-  currency: string = 'EUR'
+  currency?: string
 ): Promise<MonthlySummary[]> {
-  return fetchApi<MonthlySummary[]>(
-    `/finance/analytics/monthly?months=${months}&currency=${currency}`
-  );
+  const params = new URLSearchParams();
+  params.set('months', months.toString());
+  if (currency) params.set('currency', currency);
+
+  return fetchApi<MonthlySummary[]>(`/finance/analytics/monthly?${params.toString()}`);
 }

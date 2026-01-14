@@ -977,13 +977,14 @@ async def delete_transaction(
 async def get_spending_by_category(
     start_date: datetime | None = Query(None, description="Filter from date"),
     end_date: datetime | None = Query(None, description="Filter to date"),
-    currency: str = Query("EUR", description="Currency for totals"),
+    currency: str | None = Query(None, description="Filter by currency (optional, includes all if not set)"),
     db: Session = Depends(get_db),
     user_id: str = Depends(get_user_id),
 ):
     """Get spending summary by category.
 
     Includes both card transactions and direct bank account transactions.
+    If currency is not specified, includes all currencies.
     """
     from sqlalchemy import or_
 
@@ -1004,9 +1005,12 @@ async def get_spending_by_category(
         .filter(
             BankAccount.user_id == user_id,
             Transaction.transaction_type == "debit",
-            Transaction.currency == currency.upper(),
         )
     )
+
+    # Only filter by currency if explicitly specified
+    if currency:
+        query = query.filter(Transaction.currency == currency.upper())
 
     if start_date:
         query = query.filter(Transaction.transaction_date >= start_date)
@@ -1020,7 +1024,7 @@ async def get_spending_by_category(
             category=r.category or "Uncategorized",
             total=r.total,
             count=r.count,
-            currency=currency.upper(),
+            currency=currency.upper() if currency else "ALL",
         )
         for r in results
     ]
@@ -1029,13 +1033,14 @@ async def get_spending_by_category(
 @router.get("/analytics/monthly", response_model=list[MonthlySummary])
 async def get_monthly_spending(
     months: int = Query(6, ge=1, le=24, description="Number of months to include"),
-    currency: str = Query("EUR", description="Currency for totals"),
+    currency: str | None = Query(None, description="Filter by currency (optional, includes all if not set)"),
     db: Session = Depends(get_db),
     user_id: str = Depends(get_user_id),
 ):
     """Get monthly spending trend.
 
     Includes both card transactions and direct bank account transactions.
+    If currency is not specified, includes all currencies.
     """
     from sqlalchemy import or_
 
@@ -1056,9 +1061,15 @@ async def get_monthly_spending(
         .filter(
             BankAccount.user_id == user_id,
             Transaction.transaction_type == "debit",
-            Transaction.currency == currency.upper(),
         )
-        .group_by(func.to_char(Transaction.transaction_date, "YYYY-MM"))
+    )
+
+    # Only filter by currency if explicitly specified
+    if currency:
+        query = query.filter(Transaction.currency == currency.upper())
+
+    query = (
+        query.group_by(func.to_char(Transaction.transaction_date, "YYYY-MM"))
         .order_by(func.to_char(Transaction.transaction_date, "YYYY-MM").desc())
         .limit(months)
     )
@@ -1070,7 +1081,7 @@ async def get_monthly_spending(
             month=r.month,
             total=r.total,
             count=r.count,
-            currency=currency.upper(),
+            currency=currency.upper() if currency else "ALL",
         )
         for r in results
     ]

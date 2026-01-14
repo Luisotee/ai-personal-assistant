@@ -91,11 +91,21 @@ export default function DashboardPage() {
     );
   }
 
-  // Calculate totals
-  const totalBalance = accounts.reduce((sum, account) => {
-    const eurBalance = account.balances.find((b) => b.currency === 'EUR');
-    return sum + (eurBalance?.balance || 0);
-  }, 0);
+  // Calculate totals per currency
+  const balancesByCurrency = accounts.reduce(
+    (acc, account) => {
+      account.balances.forEach((b) => {
+        acc[b.currency] = (acc[b.currency] || 0) + b.balance;
+      });
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
+  // Convert to array and sort by total (highest first)
+  const currencyTotals = Object.entries(balancesByCurrency)
+    .map(([currency, total]) => ({ currency, total }))
+    .sort((a, b) => b.total - a.total);
 
   const currentMonthSpending = monthly.length > 0 ? monthly[monthly.length - 1]?.total || 0 : 0;
   const previousMonthSpending = monthly.length > 1 ? monthly[monthly.length - 2]?.total || 0 : 0;
@@ -140,7 +150,11 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard
           title="Total Balance"
-          value={formatCurrency(totalBalance)}
+          value={
+            currencyTotals.length > 0
+              ? currencyTotals.map((ct) => formatCurrency(ct.total, ct.currency)).join(' / ')
+              : formatCurrency(0)
+          }
           description={`Across ${accounts.length} account${accounts.length !== 1 ? 's' : ''}`}
           icon={Wallet}
         />
