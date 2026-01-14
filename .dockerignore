@@ -3,6 +3,8 @@ node_modules/
 packages/whatsapp-client/node_modules/
 packages/whatsapp-client/dist/
 packages/whatsapp-client/auth_info_baileys/
+packages/finance-dashboard/node_modules/
+packages/finance-dashboard/.next/
 
 # Python (for ai-api build)
 packages/ai-api/.venv/
