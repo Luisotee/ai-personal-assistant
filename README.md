@@ -98,19 +98,26 @@ packages/
 │       ├── services/          # Baileys abstraction layer
 │       └── utils/             # JID, reactions, vCard utilities
 │
-└── ai-api/                    # Python - AI service
-    └── src/ai_api/
-        ├── main.py            # FastAPI app (port 8000)
-        ├── agent.py           # Pydantic AI agent + tools
-        ├── commands.py        # Command parser
-        ├── database.py        # SQLAlchemy models
-        ├── embeddings.py      # Vector embedding generation
-        ├── transcription.py   # Groq Whisper STT
-        ├── tts.py             # Gemini TTS synthesis
-        ├── processing.py      # PDF parsing (Docling)
-        ├── rag/               # RAG implementations
-        ├── queue/             # Redis job utilities
-        └── streams/           # Background processor
+├── ai-api/                    # Python - AI service
+│   └── src/ai_api/
+│       ├── main.py            # FastAPI app (port 8000)
+│       ├── agent.py           # Pydantic AI agent + tools
+│       ├── commands.py        # Command parser
+│       ├── database.py        # SQLAlchemy models
+│       ├── embeddings.py      # Vector embedding generation
+│       ├── transcription.py   # Groq Whisper STT
+│       ├── tts.py             # Gemini TTS synthesis
+│       ├── processing.py      # PDF parsing (Docling)
+│       ├── rag/               # RAG implementations
+│       ├── queue/             # Redis job utilities
+│       └── streams/           # Background processor
+│
+└── finance-dashboard/         # Next.js - Personal finance dashboard
+    └── src/
+        ├── app/               # App Router pages (port 3002)
+        ├── components/        # React components (shadcn/ui)
+        ├── contexts/          # React contexts (auth, settings)
+        └── lib/               # API client, types, utilities
 ```
 
 ## Quick Start
@@ -179,172 +186,16 @@ docker compose logs -f whatsapp
 2. **Clone the repository** into Dockge's stacks directory:
    ```bash
    cd /opt/stacks
-   git clone https://github.com/Luisotee/ai-personal-assistant ai-personal-assistant
-   cd ai-personal-assistant
+   git clone https://github.com/Luisotee/ai-personal-assistant
    ```
 
-3. **Create/Edit the compose file** in Dockge:
-   - Open Dockge UI and click "Create" or navigate to the stack
-   - Name: `ai-personal-assistant`
-   - Use the following compose configuration (or use the existing `docker-compose.yml`):
-
-   ```yaml
-   services:
-     postgres:
-       image: pgvector/pgvector:pg16
-       container_name: aiagent-postgres
-       environment:
-         POSTGRES_USER: aiagent
-         POSTGRES_PASSWORD: changeme
-         POSTGRES_DB: aiagent
-       ports:
-         - "5432:5432"
-       volumes:
-         - postgres-data:/var/lib/postgresql/data
-       healthcheck:
-         test: ["CMD-SHELL", "pg_isready -U aiagent"]
-         interval: 5s
-         timeout: 5s
-         retries: 5
-
-     redis:
-       image: redis:7-alpine
-       container_name: aiagent-redis
-       ports:
-         - "6379:6379"
-       volumes:
-         - redis-data:/data
-       healthcheck:
-         test: ["CMD", "redis-cli", "ping"]
-         interval: 5s
-         timeout: 3s
-         retries: 5
-       command: redis-server --appendonly yes
-
-     adminer:
-       image: adminer:latest
-       container_name: aiagent-adminer
-       restart: always
-       ports:
-         - "8080:8080"
-       depends_on:
-         postgres:
-           condition: service_healthy
-
-     api:
-       build:
-         context: ./packages/ai-api
-         dockerfile: Dockerfile
-       container_name: aiagent-api
-       environment:
-         DATABASE_URL: postgresql://aiagent:changeme@postgres:5432/aiagent
-         REDIS_HOST: redis
-         REDIS_PORT: 6379
-         REDIS_DB: 0
-         GEMINI_API_KEY: ${GEMINI_API_KEY}
-         GROQ_API_KEY: ${GROQ_API_KEY:-}
-         LOG_LEVEL: INFO
-         KB_UPLOAD_DIR: /app/knowledge_base
-       ports:
-         - "8000:8000"
-       volumes:
-         - knowledge-base-data:/app/knowledge_base
-       depends_on:
-         postgres:
-           condition: service_healthy
-         redis:
-           condition: service_healthy
-       healthcheck:
-         test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-         interval: 30s
-         timeout: 10s
-         start_period: 30s
-         retries: 3
-       restart: unless-stopped
-
-     worker:
-       build:
-         context: ./packages/ai-api
-         dockerfile: Dockerfile
-       container_name: aiagent-worker
-       command: ["python", "-m", "ai_api.scripts.run_stream_worker"]
-       environment:
-         DATABASE_URL: postgresql://aiagent:changeme@postgres:5432/aiagent
-         REDIS_HOST: redis
-         REDIS_PORT: 6379
-         REDIS_DB: 0
-         GEMINI_API_KEY: ${GEMINI_API_KEY}
-         GROQ_API_KEY: ${GROQ_API_KEY:-}
-         LOG_LEVEL: INFO
-         KB_UPLOAD_DIR: /app/knowledge_base
-       volumes:
-         - knowledge-base-data:/app/knowledge_base
-       depends_on:
-         postgres:
-           condition: service_healthy
-         redis:
-           condition: service_healthy
-         api:
-           condition: service_healthy
-       restart: unless-stopped
-
-     whatsapp:
-       build:
-         context: .
-         dockerfile: packages/whatsapp-client/Dockerfile
-       container_name: aiagent-whatsapp
-       environment:
-         AI_API_URL: http://api:8000
-         WHATSAPP_API_PORT: 3001
-         WHATSAPP_API_HOST: 0.0.0.0
-         LOG_LEVEL: info
-       ports:
-         - "3001:3001"
-       volumes:
-         - whatsapp-session:/app/packages/whatsapp-client/auth_info_baileys
-       depends_on:
-         api:
-           condition: service_healthy
-       healthcheck:
-         test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
-         interval: 30s
-         timeout: 10s
-         start_period: 10s
-         retries: 3
-       restart: unless-stopped
-
-     dashboard:
-       build:
-         context: .
-         dockerfile: packages/finance-dashboard/Dockerfile
-         args:
-           NEXT_PUBLIC_API_URL: http://localhost:8000
-       container_name: aiagent-dashboard
-       ports:
-         - "3002:3000"
-       depends_on:
-         api:
-           condition: service_healthy
-       healthcheck:
-         test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
-         interval: 30s
-         timeout: 10s
-         start_period: 30s
-         retries: 3
-       restart: unless-stopped
-
-   volumes:
-     postgres-data:
-     redis-data:
-     knowledge-base-data:
-     whatsapp-session:
-   ```
-
-4. **Add environment variables** in Dockge's UI:
+3. **Add environment variables** - Create a `.env` file or add via Dockge's UI:
    - `GEMINI_API_KEY`: Your Google Gemini API key
    - `GROQ_API_KEY`: Your Groq API key (optional)
 
-5. **Start the stack** by clicking "Start"
+4. **Start the stack** - Dockge will auto-detect the [`docker-compose.yml`](docker-compose.yml) file. Click "Start" in the UI.
+
+> **Note:** If you have Redis or PostgreSQL already running on the host, remove or change the port mappings in the compose file to avoid conflicts.
 
 ### Option 3: Local Development
 
