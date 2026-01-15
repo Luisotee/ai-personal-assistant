@@ -189,9 +189,7 @@ docker compose logs -f whatsapp
    git clone https://github.com/Luisotee/ai-personal-assistant
    ```
 
-3. **Add environment variables** - Create a `.env` file or add via Dockge's UI:
-   - `GEMINI_API_KEY`: Your Google Gemini API key
-   - `GROQ_API_KEY`: Your Groq API key (optional)
+3. **Add environment variables** - Copy `.env.example` to `.env` and configure your values (API keys, production URLs, etc.)
 
 4. **Start the stack** - Dockge will auto-detect the [`docker-compose.yml`](docker-compose.yml) file. Click "Start" in the UI.
 
@@ -298,6 +296,22 @@ pnpm format          # Format all code
 | `AI_API_URL` | AI API endpoint for WhatsApp client |
 
 See `packages/*/.env.example` for full configuration options.
+
+## Production Deployment
+
+When deploying behind a reverse proxy (e.g., Cloudflare Tunnel, nginx):
+
+1. Update `CORS_ORIGINS` and `NEXT_PUBLIC_API_URL` in your `.env` file (see [`.env.example`](.env.example) for details)
+
+2. Rebuild and restart:
+   ```bash
+   docker compose build dashboard
+   docker compose up -d
+   ```
+
+3. Expose services via your reverse proxy:
+   - `api.yourdomain.com` -> `localhost:8000`
+   - `finance.yourdomain.com` -> `localhost:3002`
 
 ## License
 

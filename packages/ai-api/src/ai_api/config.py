@@ -86,6 +86,9 @@ class Settings(BaseSettings):
     # Finance Dashboard (single-user mode)
     default_whatsapp_jid: str | None = None  # Default user for web dashboard
 
+    # CORS (comma-separated origins for finance dashboard)
+    cors_origins: str = "http://localhost:3002,http://127.0.0.1:3002"
+
     model_config = SettingsConfigDict(
         env_file=get_env_files(),
         env_file_encoding="utf-8",

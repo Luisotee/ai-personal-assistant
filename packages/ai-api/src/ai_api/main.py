@@ -126,13 +126,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Configure CORS for finance dashboard
+# Configure CORS for finance dashboard (configurable via CORS_ORIGINS env var)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3002",  # Finance dashboard
-        "http://127.0.0.1:3002",
-    ],
+    allow_origins=[origin.strip() for origin in settings.cors_origins.split(",")],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
