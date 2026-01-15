@@ -8,6 +8,7 @@ from .config import settings
 from .tools import (
     AgentDeps,
     register_finance_tools,
+    register_time_prompt,
     register_utility_tools,
     register_web_tools,
 )
@@ -49,7 +50,8 @@ Your capabilities:
   (e.g., search "REWE Germany" to confirm it's a supermarket → category: groceries)""",
 )
 
-# Register finance tools
+# Register prompts and tools
+register_time_prompt(finance_agent)
 register_finance_tools(finance_agent)
 
 # Register utility tools (gives finance agent access to calculator, etc.)

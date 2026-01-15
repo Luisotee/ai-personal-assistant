@@ -11,6 +11,7 @@ from .logger import logger
 from .tools import (
     AgentDeps,
     register_search_tools,
+    register_time_prompt,
     register_utility_tools,
     register_web_tools,
     register_whatsapp_tools,
@@ -101,7 +102,8 @@ agent = Agent(
     When citing knowledge base sources, ALWAYS include document name, page number, and section heading.""",
 )
 
-# Register tools from shared modules
+# Register prompts and tools from shared modules
+register_time_prompt(agent)
 register_search_tools(agent)
 register_web_tools(agent)
 register_utility_tools(agent)
