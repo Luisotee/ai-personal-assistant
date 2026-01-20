@@ -21,12 +21,20 @@ from ..finance_queries import (
     get_account_balances as get_account_balances_fn,
 )
 from ..finance_queries import (
-    get_spending_summary as get_spending_summary_fn,
-)
-from ..finance_queries import (
+    get_bank_account_by_id,
+    get_card_by_id,
     get_user_bank_accounts,
     get_user_cards,
     get_user_transactions,
+)
+from ..finance_queries import (
+    get_card_by_last_four as get_card_by_last_four_fn,
+)
+from ..finance_queries import (
+    get_default_payment_method as get_default_payment_method_fn,
+)
+from ..finance_queries import (
+    get_spending_summary as get_spending_summary_fn,
 )
 from ..finance_queries import (
     record_transaction as record_transaction_fn,
@@ -462,47 +470,103 @@ def register_finance_tools(agent: Agent) -> None:
         transaction_type: str,
         transaction_date: str,
         raw_message: str,
-        card_id: str | None = None,
-        bank_account_id: str | None = None,
         merchant: str | None = None,
         description: str | None = None,
         category: str | None = None,
+        card_last_four: str | None = None,
+        account_id: str | None = None,
     ) -> str:
         """
-        Record a new transaction from a bank notification.
+        Record a transaction with smart payment method detection.
 
-        IMPORTANT: Either card_id OR bank_account_id must be provided.
-        - Use card_id for card transactions (purchases, ATM withdrawals)
-        - Use bank_account_id for direct bank transfers (PIX, wire transfers, SEPA)
+        This tool automatically determines the payment method based on context:
+        - If card_last_four is provided, finds and uses that specific card
+        - If account_id is provided, uses that account (or its first active card)
+        - If neither provided, returns error asking agent to deduce account from context
+
+        The agent should analyze context clues (currency, merchant location, explicit mentions)
+        to determine the account_id before calling this tool.
 
         Args:
             ctx: Run context with database and user info
             amount: Transaction amount (positive number)
             currency: Currency code (e.g., 'EUR', 'USD', 'BRL')
             transaction_type: Type of transaction ('debit', 'credit', 'transfer')
-            transaction_date: Date of transaction in ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
-            raw_message: The original bank notification message (for reference)
-            card_id: Optional UUID of the card used (for card transactions)
-            bank_account_id: Optional UUID of the bank account (for direct transfers like PIX)
-            merchant: Optional merchant/store name or transfer recipient
+            transaction_date: Date in ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
+            raw_message: The original message (for reference)
+            merchant: Optional merchant/store name
             description: Optional transaction description
-            category: Optional category (e.g., 'food', 'transport', 'shopping', 'transfer')
+            category: Optional category (e.g., 'food', 'transport', 'shopping')
+            card_last_four: Optional last 4 digits if specific card mentioned
+            account_id: Optional specific account ID (agent should deduce from context)
 
         Returns:
-            Success message with transaction details or error
+            Success message with transaction details or error message
         """
         logger.info("=" * 80)
         logger.info("💸 FINANCE TOOL: record_transaction")
-        logger.info(f"   Card: {card_id}, Account: {bank_account_id}")
         logger.info(f"   Amount: {amount} {currency}, Type: {transaction_type}")
         logger.info(f"   Merchant: {merchant}, Category: {category}")
+        logger.info(f"   Hints: card={card_last_four}, account={account_id}")
         logger.info("=" * 80)
 
-        # Validate that at least one source is provided
-        if not card_id and not bank_account_id:
-            return "Error: Either card_id or bank_account_id must be provided. Use card_id for card transactions, bank_account_id for direct transfers (PIX, wire, etc.)"
-
         try:
+            card_id = None
+            bank_account_id = None
+            account = None
+
+            # Strategy 1: Find card by last_four if mentioned
+            if card_last_four:
+                card = get_card_by_last_four_fn(
+                    db=ctx.deps.db,
+                    user_id=ctx.deps.user_id,
+                    last_four=card_last_four,
+                )
+                if card:
+                    card_id = str(card.id)
+                    # Get the account for confirmation message
+                    account = get_bank_account_by_id(
+                        ctx.deps.db, str(card.bank_account_id), ctx.deps.user_id
+                    )
+                    logger.info(f"Found card by last_four: {card_id}")
+                else:
+                    # List user's cards to help them
+                    cards = get_user_cards(ctx.deps.db, ctx.deps.user_id)
+                    if cards:
+                        cards_list = ", ".join(
+                            [f"•••{c.last_four} ({c.card_alias or c.card_type})" for c in cards]
+                        )
+                        return f"❌ Card ending in {card_last_four} not found. Your registered cards: {cards_list}. Please register this card first or specify which account to use."
+                    else:
+                        return f"❌ Card ending in {card_last_four} not found. You have no registered cards. Please create a card first or I can record this as a direct bank transfer - just tell me which account."
+
+            # Strategy 2: Use account-specific payment method (if account_id provided)
+            if not card_id and account_id:
+                card_id, bank_account_id, account = get_default_payment_method_fn(
+                    db=ctx.deps.db,
+                    user_id=ctx.deps.user_id,
+                    account_id=account_id,
+                )
+
+                if not card_id and not bank_account_id:
+                    return f"❌ Account {account_id} not found or doesn't belong to you."
+
+            # Strategy 3: If still no payment method, agent needs to determine account from context
+            if not card_id and not bank_account_id:
+                # The agent should have deduced the account_id from context before calling this tool
+                # If we're here, it means the agent couldn't determine it - need to ask user
+                accounts = get_user_bank_accounts(ctx.deps.db, ctx.deps.user_id)
+                if not accounts:
+                    return "❌ No bank accounts found. Please create a bank account first using create_bank_account."
+                else:
+                    accounts_list = ", ".join(
+                        [
+                            f"{acc.bank_name} ({acc.account_alias or acc.account_type})"
+                            for acc in accounts
+                        ]
+                    )
+                    return f"💡 I need to know which account this transaction is from. Your accounts: {accounts_list}. Which one should I use?"
+
             # Parse the date
             try:
                 if "T" in transaction_date:
@@ -510,10 +574,10 @@ def register_finance_tools(agent: Agent) -> None:
                 else:
                     parsed_date = datetime.strptime(transaction_date, "%Y-%m-%d")
             except ValueError:
-                # Try to use current date if parsing fails
                 parsed_date = datetime.utcnow()
                 logger.warning(f"Could not parse date '{transaction_date}', using current time")
 
+            # Record the transaction
             transaction = record_transaction_fn(
                 db=ctx.deps.db,
                 user_id=ctx.deps.user_id,
@@ -530,18 +594,24 @@ def register_finance_tools(agent: Agent) -> None:
             )
 
             if not transaction:
-                if card_id:
-                    return f"Card not found or doesn't belong to you: {card_id}"
-                else:
-                    return f"Bank account not found or doesn't belong to you: {bank_account_id}"
+                return "❌ Failed to record transaction. Payment method not found or doesn't belong to you."
 
+            # Build friendly confirmation message
             merchant_info = f" at {merchant}" if merchant else ""
             category_info = f" [{category}]" if category else ""
-            source_info = " (card)" if card_id else " (bank transfer)"
-            return f"Recorded {transaction_type}: {currency} {amount:.2f}{merchant_info}{category_info}{source_info}"
+
+            # Get payment method details for confirmation
+            if card_id:
+                card = get_card_by_id(ctx.deps.db, card_id, ctx.deps.user_id)
+                source_info = f" (card •••{card.last_four} from {account.bank_name if account else 'account'})"
+            else:
+                source_info = f" (from {account.bank_name if account else 'bank account'})"
+
+            return f"✓ Recorded {transaction_type}: {currency} {amount:.2f}{merchant_info}{category_info}{source_info}"
+
         except Exception as e:
             logger.error(f"Failed to record transaction: {e}", exc_info=True)
-            return f"Failed to record transaction: {str(e)}"
+            return f"❌ Failed to record transaction: {str(e)}"
 
     @agent.tool
     async def list_transactions(

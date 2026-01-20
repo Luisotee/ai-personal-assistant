@@ -21,7 +21,9 @@
       "WebFetch(domain:pyogg.readthedocs.io)",
       "Bash(pnpm lint:*)",
       "Bash(pnpm exec tsc:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(ls:*)",
+      "Bash(uv run ruff check:*)"
     ],
     "deny": [],
     "ask": []

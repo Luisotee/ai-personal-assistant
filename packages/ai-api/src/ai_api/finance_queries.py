@@ -243,6 +243,79 @@ def delete_card(db: Session, card_id: str, user_id: str) -> bool:
     return True
 
 
+def get_card_by_last_four(
+    db: Session,
+    user_id: str,
+    last_four: str,
+) -> Card | None:
+    """Find an active card by last 4 digits for a user."""
+    return (
+        db.query(Card)
+        .join(BankAccount)
+        .filter(
+            BankAccount.user_id == UUID(user_id),
+            Card.last_four == last_four,
+            Card.is_active,
+        )
+        .first()
+    )
+
+
+def get_user_accounts_count(
+    db: Session,
+    user_id: str,
+) -> int:
+    """Count how many bank accounts a user has."""
+    return db.query(BankAccount).filter(BankAccount.user_id == UUID(user_id)).count()
+
+
+def get_default_payment_method(
+    db: Session,
+    user_id: str,
+    account_id: str | None = None,
+) -> tuple[str | None, str | None, BankAccount | None]:
+    """
+    Get the default payment method for a user when account_id is explicitly provided.
+
+    Returns:
+        Tuple of (card_id, bank_account_id, account_object)
+        - If account_id specified: returns that account's first active card or the account
+        - If account_id NOT specified: returns (None, None, None) → agent must deduce from context or ask
+
+    Logic:
+    1. If account_id specified, use that account's first active card
+    2. If account_id NOT specified, return None → agent must use context to determine account
+       (Don't auto-use single account - AI must have context to choose!)
+    """
+    if account_id:
+        account = get_bank_account_by_id(db, account_id, user_id)
+        if not account:
+            return (None, None, None)
+    else:
+        # NO auto-detection - agent must provide account_id based on context
+        # Don't assume the single account is correct without context!
+        logger.info("No account_id provided - agent must deduce from context or ask user")
+        return (None, None, None)
+
+    # Try to find an active card for this account
+    card = (
+        db.query(Card)
+        .filter(
+            Card.bank_account_id == account.id,
+            Card.is_active,
+        )
+        .order_by(Card.created_at.desc())
+        .first()
+    )
+
+    if card:
+        logger.info(f"Using card {card.id} (•••{card.last_four}) from account {account.bank_name}")
+        return (str(card.id), None, account)
+    else:
+        logger.info(f"No active cards, using account {account.bank_name} for direct transfer")
+        return (None, str(account.id), account)
+
+
 # =============================================================================
 # Transaction Functions
 # =============================================================================
