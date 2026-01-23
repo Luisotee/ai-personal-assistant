@@ -62,6 +62,8 @@ services:
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       KB_UPLOAD_DIR: /app/knowledge_base
+      # WhatsApp client URL (use Docker service name for inter-container communication)
+      WHATSAPP_CLIENT_URL: http://whatsapp:3001
       # CORS: comma-separated origins (for production, add your dashboard domain)
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3002,http://127.0.0.1:3002}
     ports:
@@ -98,6 +100,8 @@ services:
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       KB_UPLOAD_DIR: /app/knowledge_base
+      # WhatsApp client URL (use Docker service name for inter-container communication)
+      WHATSAPP_CLIENT_URL: http://whatsapp:3001
     volumes:
       - knowledge-base-data:/app/knowledge_base
     depends_on:
