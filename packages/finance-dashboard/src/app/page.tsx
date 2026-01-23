@@ -59,12 +59,17 @@ export default function DashboardPage() {
   useEffect(() => {
     async function fetchData() {
       try {
+        // Calculate date 180 days ago for charts
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setDate(sixMonthsAgo.getDate() - 180);
+        const startDate = sixMonthsAgo.toISOString().split('T')[0];
+
         const [accountsData, cardsData, recentTxData, allTxData, spendingData, monthlyData] =
           await Promise.all([
             getAccounts(),
             getCards(),
             getTransactions({ limit: 5 }), // For recent transactions display
-            getTransactions({ limit: 500, days: 180 }), // For charts (6 months)
+            getTransactions({ limit: 500, start_date: startDate }), // For charts (6 months)
             getSpendingByCategory(),
             getMonthlySpending(6),
           ]);

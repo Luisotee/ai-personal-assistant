@@ -141,14 +141,27 @@ GEMINI_API_KEY=your_gemini_api_key_here
 GROQ_API_KEY=your_groq_api_key_here  # Optional
 EOF
 
-# Start all services
-docker compose up -d
+# Build and start all services
+docker compose up -d --build
 
 # View logs
 docker compose logs -f
 
 # Check status
 docker compose ps
+```
+
+**Updating the Deployment:**
+
+```bash
+# Pull latest changes
+git pull
+
+# Rebuild and restart services
+docker compose up -d --build
+
+# Or rebuild specific services
+docker compose up -d --build api whatsapp dashboard
 ```
 
 **Services:**
@@ -305,15 +318,32 @@ When deploying behind a reverse proxy (e.g., Cloudflare Tunnel, nginx):
 
 1. Update `CORS_ORIGINS` and `NEXT_PUBLIC_API_URL` in your `.env` file (see [`.env.example`](.env.example) for details)
 
-2. Rebuild and restart:
+2. Build and start services:
    ```bash
-   docker compose build dashboard
-   docker compose up -d
+   docker compose up -d --build
    ```
 
 3. Expose services via your reverse proxy:
    - `api.yourdomain.com` -> `localhost:8000`
    - `finance.yourdomain.com` -> `localhost:3002`
+
+### Updating Production
+
+```bash
+# Pull latest changes
+git pull
+
+# Rebuild and restart all services
+docker compose up -d --build
+
+# Or update specific services only
+docker compose up -d --build api
+docker compose up -d --build whatsapp
+docker compose up -d --build dashboard
+
+# View logs to verify update
+docker compose logs -f
+```
 
 ## License
 
