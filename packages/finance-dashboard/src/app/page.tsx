@@ -15,6 +15,9 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Pie, PieChart, Cell, Legend
 import { StatsCard } from '@/components/dashboard/stats-card';
 import { DashboardSkeleton } from '@/components/dashboard/dashboard-skeleton';
 import { BalanceDetailsSheet } from '@/components/dashboard/balance-details-sheet';
+import { CashFlowChart } from '@/components/dashboard/cash-flow-chart';
+import { AccountDistributionChart } from '@/components/dashboard/account-distribution-chart';
+import { DayOfWeekChart } from '@/components/dashboard/day-of-week-chart';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useSettings } from '@/contexts/settings-context';
 import { formatCurrency, formatConvertedCurrency } from '@/lib/currency';
@@ -44,7 +47,8 @@ const CHART_COLORS = [
 export default function DashboardPage() {
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [cards, setCards] = useState<CardType[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [spending, setSpending] = useState<SpendingSummary[]>([]);
   const [monthly, setMonthly] = useState<MonthlySummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,18 +59,20 @@ export default function DashboardPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const [accountsData, cardsData, transactionsData, spendingData, monthlyData] =
+        const [accountsData, cardsData, recentTxData, allTxData, spendingData, monthlyData] =
           await Promise.all([
             getAccounts(),
             getCards(),
-            getTransactions({ limit: 5 }),
+            getTransactions({ limit: 5 }), // For recent transactions display
+            getTransactions({ limit: 500, days: 180 }), // For charts (6 months)
             getSpendingByCategory(),
             getMonthlySpending(6),
           ]);
 
         setAccounts(accountsData);
         setCards(cardsData);
-        setTransactions(transactionsData);
+        setRecentTransactions(recentTxData);
+        setAllTransactions(allTxData);
         setSpending(spendingData);
         setMonthly(monthlyData.reverse());
       } catch (err) {
@@ -225,8 +231,8 @@ export default function DashboardPage() {
         />
         <StatsCard
           title="Transactions"
-          value={transactions.length.toString()}
-          description="Recent transactions"
+          value={allTransactions.length.toString()}
+          description="Last 6 months"
           icon={Receipt}
         />
         <StatsCard
@@ -236,6 +242,9 @@ export default function DashboardPage() {
           icon={CreditCard}
         />
       </div>
+
+      {/* Cash Flow Chart - Full Width */}
+      <CashFlowChart transactions={allTransactions} months={6} currency={primaryCurrency} />
 
       {/* Charts */}
       <div className="grid gap-6 lg:grid-cols-2">
@@ -335,6 +344,16 @@ export default function DashboardPage() {
         </Card>
       </div>
 
+      {/* Additional Analytics */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <AccountDistributionChart
+          accounts={accounts}
+          convertToPrimary={convertToPrimary}
+          currency={primaryCurrency}
+        />
+        <DayOfWeekChart transactions={allTransactions} currency={primaryCurrency} />
+      </div>
+
       {/* Recent Transactions */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -347,9 +366,9 @@ export default function DashboardPage() {
           </Button>
         </CardHeader>
         <CardContent>
-          {transactions.length > 0 ? (
+          {recentTransactions.length > 0 ? (
             <div className="space-y-4">
-              {transactions.map((tx) => (
+              {recentTransactions.map((tx) => (
                 <div
                   key={tx.id}
                   className="flex items-center justify-between border-b border-border pb-4 last:border-0 last:pb-0"

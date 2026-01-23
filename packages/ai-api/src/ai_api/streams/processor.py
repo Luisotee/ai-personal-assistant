@@ -10,7 +10,12 @@ from redis.asyncio import Redis
 
 from ..agent import AgentDeps, format_message_history, get_ai_response
 from ..config import settings
-from ..database import SessionLocal, get_conversation_history, save_message
+from ..database import (
+    SessionLocal,
+    get_conversation_history,
+    get_or_create_preferences,
+    save_message,
+)
 from ..embeddings import create_embedding_service
 from ..logger import logger
 from ..processing import process_pdf_document
@@ -33,6 +38,8 @@ async def process_chat_job_direct(
     document_id: str | None = None,
     document_path: str | None = None,
     document_filename: str | None = None,
+    is_automated: bool = False,
+    automated_source: str | None = None,
 ) -> dict:
     """
     Process a chat message asynchronously without arq context.
@@ -73,6 +80,9 @@ async def process_chat_job_direct(
     logger.info(f"[Job {job_id}] WhatsApp message ID: {whatsapp_message_id}")
     logger.info(f"[Job {job_id}] Has image: {has_image}")
     logger.info(f"[Job {job_id}] Has document: {has_document}")
+    logger.info(f"[Job {job_id}] Is automated: {is_automated}")
+    if automated_source:
+        logger.info(f"[Job {job_id}] Automated source: {automated_source}")
 
     # Get Redis client
     redis: Redis = await get_redis_client()
@@ -241,6 +251,44 @@ async def process_chat_job_direct(
             embedding=assistant_embedding,
         )
         logger.info(f"[Job {job_id}] Assistant message saved with ID: {assistant_msg.id}")
+
+        # Step 6.5: Handle automated messages - send proactive responses via configured channels
+        if is_automated:
+            logger.info(
+                f"[Job {job_id}] Handling automated message from source: {automated_source}"
+            )
+
+            # Get user preferences to check enabled channels
+            prefs = get_or_create_preferences(db, user_id)
+            channels = [ch.strip() for ch in prefs.automated_response_channels.split(",")]
+
+            logger.info(f"[Job {job_id}] Configured channels: {channels}")
+
+            # Send via WhatsApp if configured
+            if "whatsapp" in channels:
+                try:
+                    await whatsapp_client.send_text(
+                        phone_number=whatsapp_jid,
+                        text=f"🤖 {full_response}",
+                    )
+                    logger.info(
+                        f"[Job {job_id}] ✅ Sent automated response to WhatsApp: {whatsapp_jid}"
+                    )
+                except Exception as e:
+                    logger.error(f"[Job {job_id}] ❌ Failed to send WhatsApp response: {e}")
+
+            # TODO: Send via Telegram if configured (Phase 2)
+            if "telegram" in channels and prefs.telegram_chat_id:
+                logger.info(
+                    f"[Job {job_id}] Telegram integration not yet implemented, "
+                    f"skipping send to {prefs.telegram_chat_id}"
+                )
+                # Future implementation:
+                # telegram_client = TelegramClient()
+                # await telegram_client.send_message(
+                #     chat_id=prefs.telegram_chat_id,
+                #     text=f"🤖 Auto-Response:\n\n{full_response}"
+                # )
 
         # Step 7: Save job metadata to Redis
         await set_job_metadata(

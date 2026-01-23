@@ -273,7 +273,9 @@ pnpm dev:queue
 # From project root
 pnpm dev:server      # Start AI API
 pnpm dev:whatsapp    # Start WhatsApp client
+pnpm dev:dashboard   # Start Finance Dashboard
 pnpm dev:queue       # Start background worker
+pnpm seed:finance    # Seed finance database with demo data
 pnpm install:all     # Install all dependencies
 pnpm lint            # Check TypeScript + Python
 pnpm format          # Format all code

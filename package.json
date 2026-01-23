@@ -9,6 +9,7 @@
     "dev:whatsapp": "pnpm --filter @ai-boilerplate/whatsapp-client dev",
     "dev:queue": "cd packages/ai-api && uv run python -m ai_api.scripts.run_stream_worker",
     "dev:dashboard": "pnpm --filter finance-dashboard dev",
+    "seed:finance": "cd packages/ai-api && uv run python -m ai_api.scripts.seed_finance",
     "install:all": "pnpm install && cd packages/ai-api && uv sync",
     "lint": "eslint packages/whatsapp-client/src && pnpm --filter finance-dashboard lint && cd packages/ai-api && uv run ruff check .",
     "lint:fix": "eslint packages/whatsapp-client/src --fix && cd packages/ai-api && uv run ruff check . --fix",

@@ -116,6 +116,12 @@ async def process_single_message(user_id: str, message_id: str, data: dict):
     if b"document_filename" in data:
         document_filename = data[b"document_filename"].decode()
 
+    # Extract optional automated message fields
+    is_automated = data.get(b"is_automated", b"").decode() == "true"
+    automated_source = None
+    if b"automated_source" in data:
+        automated_source = data[b"automated_source"].decode()
+
     # Call core processor function
     await process_chat_job_direct(
         user_id=data[b"user_id"].decode(),
@@ -131,6 +137,8 @@ async def process_single_message(user_id: str, message_id: str, data: dict):
         document_id=document_id,
         document_path=document_path,
         document_filename=document_filename,
+        is_automated=is_automated,
+        automated_source=automated_source,
     )
 
 

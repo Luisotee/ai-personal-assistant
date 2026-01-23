@@ -83,7 +83,7 @@ class ConversationMessage(Base):
 
 
 class ConversationPreferences(Base):
-    """Per-conversation preferences for TTS and STT settings."""
+    """Per-conversation preferences for TTS, STT, and automated response settings."""
 
     __tablename__ = "conversation_preferences"
 
@@ -98,6 +98,16 @@ class ConversationPreferences(Base):
 
     # STT Settings
     stt_language = Column(String, nullable=True)  # null = auto-detect
+
+    # Automated Response Settings
+    automated_response_enabled = Column(Boolean, default=True, nullable=False)
+    automated_response_channels = Column(
+        String, default="whatsapp", nullable=False
+    )  # Comma-separated: "whatsapp,telegram"
+
+    # Telegram Integration
+    telegram_user_id = Column(String, nullable=True, index=True)  # Telegram user ID
+    telegram_chat_id = Column(String, nullable=True)  # Telegram chat ID
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

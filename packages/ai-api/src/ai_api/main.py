@@ -25,6 +25,7 @@ from .config import settings
 from .database import (
     get_conversation_history,
     get_db,
+    get_or_create_preferences,
     get_or_create_user,
     get_user_preferences,
     init_db,
@@ -781,7 +782,8 @@ async def enqueue_chat(request: ChatRequest, db: Session = Depends(get_db)):
     """
     has_image = request.image_data is not None and request.image_mimetype is not None
     logger.info(
-        f"Received request from {request.whatsapp_jid}: {request.message[:50]}... (has_image={has_image})"
+        f"Received request from {request.whatsapp_jid}: {request.message[:50]}... "
+        f"(has_image={has_image}, is_automated={request.is_automated})"
     )
 
     # Check for commands first (e.g., /settings, /tts on, /help)
@@ -791,6 +793,48 @@ async def enqueue_chat(request: ChatRequest, db: Session = Depends(get_db)):
         if result.is_command:
             logger.info(f"Command executed for {request.whatsapp_jid}: {request.message}")
             return CommandResponse(is_command=True, response=result.response_text)
+
+    # Check if automated response is enabled for automated messages
+    if request.is_automated:
+        user = get_or_create_user(db, request.whatsapp_jid, request.conversation_type)
+        prefs = get_or_create_preferences(db, str(user.id))
+
+        if not prefs.automated_response_enabled:
+            logger.info(
+                f"Automated response disabled for user {request.whatsapp_jid}, "
+                f"saving message without responding"
+            )
+
+            # Format message with automated source if provided
+            content = request.message
+            if request.automated_source:
+                content = f"[{request.automated_source}] {content}"
+
+            # Generate embedding for message
+            user_embedding = None
+            embedding_service = create_embedding_service(settings.gemini_api_key)
+            if embedding_service:
+                try:
+                    user_embedding = await embedding_service.generate(content)
+                except Exception as e:
+                    logger.error(f"Embedding generation error: {str(e)}")
+
+            # Save message to context but don't process
+            save_message(
+                db,
+                request.whatsapp_jid,
+                "user",
+                content,
+                request.conversation_type,
+                sender_jid=request.sender_jid,
+                sender_name=request.sender_name,
+                embedding=user_embedding,
+            )
+
+            return CommandResponse(
+                is_command=True,
+                response="Automated responses disabled for this user. Message saved to context.",
+            )
 
     try:
         # Check for document
@@ -853,7 +897,7 @@ async def enqueue_chat(request: ChatRequest, db: Session = Depends(get_db)):
         redis_client = await get_redis_client()
         job_id = str(uuid.uuid4())
 
-        # Build job data with optional whatsapp_message_id
+        # Build job data with optional whatsapp_message_id and automated flags
         job_data = {
             "job_id": job_id,
             "user_id": str(user.id),
@@ -861,9 +905,12 @@ async def enqueue_chat(request: ChatRequest, db: Session = Depends(get_db)):
             "message": request.message,  # Original message/caption for AI processing
             "conversation_type": request.conversation_type,
             "user_message_id": str(user_msg.id),
+            "is_automated": str(request.is_automated).lower(),  # Convert bool to string for Redis
         }
         if request.whatsapp_message_id:
             job_data["whatsapp_message_id"] = request.whatsapp_message_id
+        if request.automated_source:
+            job_data["automated_source"] = request.automated_source
 
         # Handle image data if present
         if has_image:
@@ -1401,5 +1448,126 @@ async def update_preferences_endpoint(
         raise
     except Exception as e:
         logger.error(f"Error updating preferences: {str(e)}", exc_info=True)
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@app.get("/preferences/{whatsapp_jid}/automated", tags=["Preferences"])
+async def get_automated_preferences(whatsapp_jid: str, db: Session = Depends(get_db)):
+    """
+    Get automated response preferences for a user
+
+    Returns settings for whether automated messages trigger AI responses
+    and which channels are configured for delivery.
+
+    **Path Parameters:**
+    - `whatsapp_jid`: WhatsApp JID (e.g., "1234567890@s.whatsapp.net")
+
+    **Response:**
+    - `automated_response_enabled`: Whether AI responds to automated messages
+    - `automated_response_channels`: Comma-separated list of channels (e.g., "whatsapp,telegram")
+    - `telegram_chat_id`: Telegram chat ID for sending messages (null if not configured)
+    - `telegram_user_id`: Telegram user ID (null if not configured)
+    """
+    logger.info(f"Getting automated preferences for {whatsapp_jid}")
+
+    try:
+        prefs = get_user_preferences(db, whatsapp_jid)
+        if not prefs:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        return {
+            "automated_response_enabled": prefs.automated_response_enabled,
+            "automated_response_channels": prefs.automated_response_channels,
+            "telegram_chat_id": prefs.telegram_chat_id,
+            "telegram_user_id": prefs.telegram_user_id,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting automated preferences: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@app.patch("/preferences/{whatsapp_jid}/automated", tags=["Preferences"])
+async def update_automated_preferences(
+    whatsapp_jid: str,
+    enabled: bool | None = None,
+    channels: str | None = None,
+    telegram_chat_id: str | None = None,
+    telegram_user_id: str | None = None,
+    db: Session = Depends(get_db),
+):
+    """
+    Update automated response preferences for a user
+
+    Configure whether the AI should proactively respond to automated messages
+    (e.g., from Macrodroid) and which channels to use for delivery.
+
+    **Path Parameters:**
+    - `whatsapp_jid`: WhatsApp JID
+
+    **Query Parameters (all optional):**
+    - `enabled`: Enable/disable automated responses (true/false)
+    - `channels`: Comma-separated list of channels (e.g., "whatsapp,telegram")
+    - `telegram_chat_id`: Telegram chat ID for sending messages
+    - `telegram_user_id`: Telegram user ID
+
+    **Response:**
+    - Updated automated preferences
+
+    **Example:**
+    ```bash
+    curl -X PATCH "http://localhost:8000/preferences/1234567890@s.whatsapp.net/automated?enabled=true&channels=whatsapp"
+    ```
+    """
+    logger.info(f"Updating automated preferences for {whatsapp_jid}")
+
+    try:
+        prefs = get_user_preferences(db, whatsapp_jid)
+        if not prefs:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Update only provided fields
+        if enabled is not None:
+            prefs.automated_response_enabled = enabled
+
+        if channels is not None:
+            # Validate channels
+            valid_channels = {"whatsapp", "telegram"}
+            provided_channels = {ch.strip() for ch in channels.split(",")}
+            invalid_channels = provided_channels - valid_channels
+            if invalid_channels:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid channels: {', '.join(invalid_channels)}. "
+                    f"Supported: {', '.join(sorted(valid_channels))}",
+                )
+            prefs.automated_response_channels = channels
+
+        if telegram_chat_id is not None:
+            prefs.telegram_chat_id = telegram_chat_id
+
+        if telegram_user_id is not None:
+            prefs.telegram_user_id = telegram_user_id
+
+        db.commit()
+        db.refresh(prefs)
+
+        logger.info(f"Automated preferences updated for {whatsapp_jid}")
+
+        return {
+            "success": True,
+            "automated_response_enabled": prefs.automated_response_enabled,
+            "automated_response_channels": prefs.automated_response_channels,
+            "telegram_chat_id": prefs.telegram_chat_id,
+            "telegram_user_id": prefs.telegram_user_id,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating automated preferences: {str(e)}", exc_info=True)
         db.rollback()
         raise HTTPException(status_code=500, detail="Internal server error")

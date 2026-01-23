@@ -20,6 +20,14 @@ class ChatRequest(BaseModel):
     )
     document_filename: str | None = Field(None, description="Original document filename")
 
+    # Automated message detection
+    is_automated: bool = Field(
+        False, description="Whether this is an automated message (e.g., from Macrodroid)"
+    )
+    automated_source: str | None = Field(
+        None, description="Optional source of automated message (e.g., 'macrodroid', 'calendar')"
+    )
+
 
 class ChatResponse(BaseModel):
     response: str
