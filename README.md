@@ -44,6 +44,14 @@ A production-ready AI agent system that brings conversational AI to WhatsApp wit
 - Location sharing and contact cards (vCard)
 - Voice messages with TTS responses
 
+### Automated Message Detection & Response
+- Proactive AI responses to automated messages from third-party sources
+- User preference system to enable/disable automated responses per conversation
+- Channel selection (WhatsApp, future: Telegram, email)
+- Support for flagging messages as automated via API (`is_automated` field)
+- Ideal for parsing notifications from banking apps, payment services, email forwarding
+- Integrates with automation tools like Macrodroid to forward phone notifications
+
 ### Command System
 | Command | Description |
 |---------|-------------|
@@ -249,6 +257,149 @@ pnpm dev:queue
 4. Finance dashboard: http://localhost:3002
 5. Database GUI: http://localhost:8080
 
+## Automated Notifications with Macrodroid
+
+One of the powerful features of this system is the ability to automatically process notifications from your phone and have the AI respond proactively. This is particularly useful for financial notifications, delivery updates, and other app notifications that you want to track or act upon.
+
+### Use Cases
+
+**Financial Tracking:**
+- Bank transaction notifications (e.g., "You spent €3.50 at Lidl with Mastercard")
+- Payment app notifications (Google Wallet, PayPal, Venmo)
+- Credit card alerts and statements
+- Investment updates and stock alerts
+
+**Email Forwarding:**
+- Forward bank statement emails to the AI for parsing
+- Process invoice emails automatically
+- Track subscription renewals and payments
+- Receipt processing from online purchases
+
+**Manual Entry:**
+- Send transaction details directly via API
+- Log expenses through custom integrations
+- Connect with other automation tools (IFTTT, Zapier, n8n)
+
+### Setup with Macrodroid (Android)
+
+[Macrodroid](https://www.macrodroid.com/) is an Android automation app that can intercept notifications and forward them to your AI API.
+
+#### Step 1: Install Macrodroid
+
+1. Install [Macrodroid](https://play.google.com/store/apps/details?id=com.arlosoft.macrodroid) from Google Play
+2. Grant notification access permissions
+3. Grant any other required permissions (storage, network)
+
+#### Step 2: Create Automation Macro
+
+1. Open Macrodroid and tap **"Add Macro"**
+2. Give it a name like "Forward Bank Notifications to AI"
+
+**Trigger:**
+- Select **"Notification"** trigger
+- Choose the apps you want to monitor (e.g., your banking app, Google Wallet, PayPal)
+- Select "Notification Received"
+
+**Actions:**
+- Add **"HTTP Request"** action
+- Configure as follows:
+  - **URL**: `http://your-server:8000/chat/enqueue`
+  - **Method**: POST
+  - **Content-Type**: application/json
+  - **Request Body**:
+    ```json
+    {
+      "whatsapp_jid": "YOUR_PHONE@s.whatsapp.net",
+      "message": "[notification_title]\n\n[notification_text]",
+      "conversation_type": "private",
+      "is_automated": true,
+      "automated_source": "macrodroid"
+    }
+    ```
+
+Replace:
+- `YOUR_PHONE@s.whatsapp.net` with your WhatsApp JID
+- `your-server:8000` with your API endpoint
+- Use Macrodroid's magic text variables like `[notification_title]` and `[notification_text]`
+
+**Important:** The message field must have newlines properly formatted. Macrodroid will handle this automatically when using the JSON builder or `\n` escape sequences.
+
+**Note:** Automated responses are **enabled by default** for all users with WhatsApp as the default channel. You can disable them at any time using the preference endpoints (see "Managing Automated Responses" below).
+
+#### Step 3: Test the Setup
+
+1. Trigger a test notification from one of your monitored apps (or use Macrodroid's test feature)
+2. Check your WhatsApp - you should receive a proactive message from the AI with a 🤖 prefix
+3. Check the AI API logs to verify processing:
+   ```bash
+   docker compose logs -f api worker
+   ```
+
+### Example: Bank Notification Flow
+
+```
+1. Bank sends notification: "Lidl sagt Danke 09/01/2026 - €3.50 with Mastercard .3978"
+   ↓
+2. Macrodroid intercepts notification
+   ↓
+3. Macrodroid sends HTTP POST to /chat/enqueue with is_automated=true
+   ↓
+4. AI API processes message in background (Redis Streams)
+   ↓
+5. AI parses transaction details, extracts merchant, amount, payment method
+   ↓
+6. AI saves transaction to finance database (via finance agent tools)
+   ↓
+7. AI sends proactive WhatsApp response:
+   "🤖 Recorded transaction: €3.50 at Lidl paid with Mastercard ending in 3978"
+```
+
+### Email Forwarding
+
+If your bank sends email notifications instead of (or in addition to) app notifications:
+
+1. Set up email forwarding to a webhook service (e.g., [Mailgun](https://www.mailgun.com/), [SendGrid Inbound Parse](https://sendgrid.com/docs/for-developers/parsing-email/setting-up-the-inbound-parse-webhook/))
+2. Create a webhook handler that extracts the email subject/body
+3. Forward to your AI API's `/chat/enqueue` endpoint with `is_automated=true`
+4. The AI will parse the email content and respond via WhatsApp
+
+Alternatively, use email automation tools like [n8n](https://n8n.io/) or [Zapier](https://zapier.com/) to create workflows that monitor your inbox and forward matching emails to the AI API.
+
+### Managing Automated Responses
+
+Automated responses are **enabled by default** for all users with WhatsApp as the default channel.
+
+**Check Current Settings:**
+```bash
+curl "http://your-server:8000/preferences/YOUR_PHONE@s.whatsapp.net/automated"
+```
+
+**Disable Automated Responses:**
+```bash
+curl -X PATCH "http://your-server:8000/preferences/YOUR_PHONE@s.whatsapp.net/automated?enabled=false"
+```
+
+**Re-enable Automated Responses:**
+```bash
+curl -X PATCH "http://your-server:8000/preferences/YOUR_PHONE@s.whatsapp.net/automated?enabled=true&channels=whatsapp"
+```
+
+When disabled, automated messages are still saved to conversation context but no proactive response is sent.
+
+**Update Telegram Chat ID (for future multi-channel support):**
+```bash
+curl -X PATCH "http://your-server:8000/preferences/YOUR_PHONE@s.whatsapp.net/automated?telegram_chat_id=YOUR_TELEGRAM_CHAT_ID"
+```
+
+### Technical Details
+
+- Automated messages are processed asynchronously via Redis Streams
+- The `is_automated` flag triggers special handling in the AI agent
+- User preferences are checked before sending proactive responses
+- Messages are prefixed with 🤖 to indicate they're automated
+- All automated messages are saved to conversation history for context
+- The finance agent can automatically extract transaction details and save to database
+
 ## API Endpoints
 
 ### Chat
@@ -256,8 +407,10 @@ pnpm dev:queue
 |--------|----------|-------------|
 | POST | `/chat` | Synchronous chat response |
 | POST | `/chat/stream` | SSE streaming response |
-| POST | `/chat/enqueue` | Async job (returns job_id) |
+| POST | `/chat/enqueue` | Async job (returns job_id, supports `is_automated` flag) |
 | GET | `/chat/job/{job_id}` | Poll job status + chunks |
+
+**Automated Messages:** Add `"is_automated": true` and optional `"automated_source": "macrodroid"` to the request body of `/chat/enqueue` to enable proactive AI responses via WhatsApp.
 
 ### Knowledge Base
 | Method | Endpoint | Description |
@@ -279,6 +432,8 @@ pnpm dev:queue
 |--------|----------|-------------|
 | GET | `/preferences/{jid}` | Get user settings |
 | PATCH | `/preferences/{jid}` | Update TTS/STT settings |
+| GET | `/preferences/{jid}/automated` | Get automated response settings |
+| PATCH | `/preferences/{jid}/automated` | Update automated response settings (enabled, channels, telegram_chat_id) |
 
 ## Development
 
