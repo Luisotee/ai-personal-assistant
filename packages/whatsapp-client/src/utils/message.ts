@@ -18,7 +18,13 @@ export function getSenderName(msg: WAMessage): string {
  * Supports both phone JID (@s.whatsapp.net) and LID (@lid) formats
  */
 export function isBotMentioned(msg: WAMessage, botJid: string, botLid?: string): boolean {
-  const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+  // Check contextInfo from different message types that support mentions
+  const contextInfo =
+    msg.message?.extendedTextMessage?.contextInfo ||
+    msg.message?.imageMessage?.contextInfo ||
+    msg.message?.documentMessage?.contextInfo;
+
+  const mentionedJids = contextInfo?.mentionedJid || [];
   const matchesJid = mentionedJids.includes(botJid);
   const matchesLid = botLid ? mentionedJids.includes(botLid) : false;
 

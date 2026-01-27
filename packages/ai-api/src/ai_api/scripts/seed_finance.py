@@ -156,7 +156,7 @@ def seed_database():
         db.refresh(wise_account)
         db.refresh(nubank_account)
 
-        logger.info(f"Created 3 bank accounts")
+        logger.info("Created 3 bank accounts")
 
         # Create account balances
         logger.info("Creating account balances...")
@@ -229,7 +229,7 @@ def seed_database():
         db.refresh(wise_debit)
         db.refresh(nubank_credit)
 
-        logger.info(f"Created 3 cards")
+        logger.info("Created 3 cards")
 
         # Generate transactions over the past 6 months
         logger.info("Generating transactions...")
@@ -380,9 +380,9 @@ def seed_database():
         logger.info("Seeding completed successfully!")
         logger.info("=" * 80)
         logger.info(f"Demo User: {user.name} ({user.whatsapp_jid})")
-        logger.info(f"Bank Accounts: 3 (N26, Wise, Nubank)")
-        logger.info(f"Cards: 3 (all active)")
-        logger.info(f"Balances: 5 currencies (EUR, USD, GBP, BRL)")
+        logger.info("Bank Accounts: 3 (N26, Wise, Nubank)")
+        logger.info("Cards: 3 (all active)")
+        logger.info("Balances: 5 currencies (EUR, USD, GBP, BRL)")
         logger.info(f"Transactions: {total_transactions} over 6 months")
         logger.info("=" * 80)
         logger.info("You can now view the dashboard at http://localhost:3002")

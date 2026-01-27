@@ -33,7 +33,19 @@ export async function handleTextMessage(
 
   // In groups, only respond if mentioned or replied to
   if (conversationType === 'group' && !shouldRespondInGroup(msg, botJid, botLid)) {
-    logger.debug({ whatsappJid }, 'Skipping group message (not mentioned)');
+    // Save the message for context but don't generate a response
+    try {
+      await sendMessageToAI(whatsappJid, text, {
+        conversationType,
+        senderJid: msg.key.participant,
+        senderName: getSenderName(msg),
+        messageId: msg.key.id,
+        saveOnly: true,
+      });
+      logger.debug({ whatsappJid, senderName: getSenderName(msg) }, 'Saved group message (not mentioned)');
+    } catch (error) {
+      logger.warn({ error, whatsappJid }, 'Failed to save group message context');
+    }
     return;
   }
 
