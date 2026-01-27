@@ -42,7 +42,10 @@ export async function handleTextMessage(
         messageId: msg.key.id,
         saveOnly: true,
       });
-      logger.debug({ whatsappJid, senderName: getSenderName(msg) }, 'Saved group message (not mentioned)');
+      logger.debug(
+        { whatsappJid, senderName: getSenderName(msg) },
+        'Saved group message (not mentioned)'
+      );
     } catch (error) {
       logger.warn({ error, whatsappJid }, 'Failed to save group message context');
     }
