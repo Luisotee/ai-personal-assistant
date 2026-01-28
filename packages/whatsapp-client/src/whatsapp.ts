@@ -66,6 +66,13 @@ export async function initializeWhatsApp(): Promise<void> {
 
       if (msg.key.fromMe || msg.key.remoteJid === 'status@broadcast') continue;
 
+      // Mark message as read immediately
+      try {
+        await sock.readMessages([msg.key]);
+      } catch (error) {
+        logger.warn({ error, messageId: msg.key.id }, 'Failed to mark message as read');
+      }
+
       // Normalize message content to handle wrappers (viewOnce, ephemeral, etc.)
       const normalizedMessage = normalizeMessageContent(msg.message);
 
